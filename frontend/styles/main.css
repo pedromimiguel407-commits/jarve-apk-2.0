@@ -101,3 +101,9 @@
 #studioVideo[hidden] { display: none; }
 .primary-btn:disabled,.secondary-btn:disabled { opacity: .55; cursor: not-allowed; }
 @media (max-width: 640px) { .html-test-toolbar { align-items: flex-start; } .html-test-toolbar h3 { margin-bottom: 4px; } }
+.chat-tools { flex: 0 0 auto; max-height: 48vh; overflow: auto; margin: 0 0 12px; }
+.chat-tool-grid button { display: grid; gap: 5px; min-height: 72px; padding: 14px; text-align: left; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+.chat-tool-grid button:hover { border-color: var(--accent); }
+.chat-tool-grid small { color: var(--muted); font: inherit; font-size: 12px; }
+#btnChatTools, #btnBackToChat { white-space: nowrap; }
+@media (max-width: 560px) { .topbar-actions #btnChatTools, .topbar-actions #btnBackToChat { padding: 8px; font-size: 10px; } .chat-tools { max-height: 38vh; } }

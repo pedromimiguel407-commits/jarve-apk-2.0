@@ -78,7 +78,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnClear').hidden = v !== 'chat';
     document.getElementById('btnExport').hidden = v !== 'chat';
     document.getElementById('btnTheme').hidden = v !== 'chat';
-    const viewTitles = { settings: 'Configurações', 'voice-studio': 'Voz e vídeo', 'html-tests': 'Testes HTML', reports: 'Relatórios', gerador: 'Gerador' };
+    document.getElementById('btnChatTools').hidden = v !== 'chat';
+    document.getElementById('btnBackToChat').hidden = v === 'chat';
+    document.getElementById('chatTools').hidden = true;
+    document.getElementById('btnChatTools').setAttribute('aria-expanded', 'false');
+    const viewTitles = {
+      settings: 'Configurações',
+      'voice-studio': 'Voz e vídeo',
+      'html-tests': 'Testes HTML',
+      reports: 'Relatórios',
+      gerador: 'Gerador',
+      agents: 'Agentes',
+      tasks: 'Tarefas',
+      files: 'Arquivos e código',
+      memory: 'Memória',
+    };
     if (viewTitles[v]) document.getElementById('convTitle').textContent = viewTitles[v];
     else if (state.currentConversationId !== null) {
       const current = state.conversations.find(conversation => conversation.id === state.currentConversationId);
@@ -102,6 +116,22 @@ document.addEventListener('DOMContentLoaded', () => {
   window.jarvesSetView = setView;
   document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
     btn.addEventListener('click', () => { setView(btn.dataset.view); closeSidebar(); });
+  });
+  document.getElementById('btnChatTools').addEventListener('click', () => {
+    const panel = document.getElementById('chatTools');
+    panel.hidden = !panel.hidden;
+    document.getElementById('btnChatTools').setAttribute('aria-expanded', String(!panel.hidden));
+  });
+  document.getElementById('btnCloseChatTools').addEventListener('click', () => {
+    document.getElementById('chatTools').hidden = true;
+    document.getElementById('btnChatTools').setAttribute('aria-expanded', 'false');
+  });
+  document.getElementById('btnBackToChat').addEventListener('click', () => setView('chat'));
+  document.getElementById('chatTools').addEventListener('click', event => {
+    const button = event.target.closest('[data-chat-tool]');
+    if (!button) return;
+    setView(button.dataset.chatTool);
+    closeSidebar();
   });
   // default chat view
   setView('chat');
