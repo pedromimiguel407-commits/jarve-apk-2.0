@@ -41,12 +41,16 @@ O APK é um cliente da interface web. O backend e o provedor IA/Ollama continuam
 4. Para publicar o APK em Releases, crie e envie uma tag `v2.3.2`:
    `git tag v2.3.2 && git push origin v2.3.2`
 
-A página de downloads está em `/download.html` quando o servidor JARVES está em execução. Ela consulta o release mais recente e só mostra botões para APK/EXE quando encontra os assets reais `app-debug.apk` e `JARVES-AI-Setup-<versão>-x64.exe`. Para disponibilizá-la na internet, publique essa página em um hosting autorizado e configure nela o repositório correto. Nenhum hosting foi publicado por esta alteração. Os instaladores são gerados como artefatos do Actions e não são anexados automaticamente a um Release.
+A página de downloads está em `/download.html` quando o servidor JARVES está em execução. O workflow **Publish JARVES downloads site** publica a mesma página como site estático no GitHub Pages e a atualiza em pushes para `main`. Ela consulta o release mais recente e só mostra botões quando encontra os assets reais `app-debug.apk`, `JARVES-AI-Setup-<versão>-x64.exe` e `JARVES-AI-<versão>-x64.AppImage`. Artefatos de Actions não são anexados automaticamente a um Release. O APK atual é uma compilação de depuração; o EXE não é assinado.
 
 ## Gerar instalador Windows
 - Execute `npm ci` e `npm run build:windows` em Windows com Node.js 22.13+. O instalador NSIS será criado em `dist/`.
 - O workflow **Build JARVES Windows EXE** compila o instalador em cada push que altera o app e o publica como artefato do Actions (não como Release).
 - O instalador ainda não tem assinatura de código; o Windows pode mostrar avisos do SmartScreen.
+
+## Gerar AppImage para Linux
+- Requer Node.js 22.13+; execute `npm ci` e `npm run build:linux` para criar `dist/JARVES-AI-2.3.2-x86_64.AppImage`.
+- O workflow **Build JARVES Linux AppImage** gera o mesmo pacote x86_64 e publica-o como artefato do Actions. Para aparecer no site, publique o `.AppImage` como asset de um GitHub Release.
 
 ## Interface, voz e correção assistida
 - A navegação principal oferece **Chat**, **Voz e vídeo** e **Configurações**, com histórico dentro do chat e atalho para downloads.
