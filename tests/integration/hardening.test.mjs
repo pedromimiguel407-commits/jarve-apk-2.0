@@ -47,6 +47,25 @@ test('preview de arquivo enviado usa CSP sandbox e preview inexistente da 404', 
   assert.equal((await fetch(`${base}/preview/nao-existe`)).status, 404);
 });
 
+test('download de rede rejeita enderecos locais e exporta arquivos sem alterar bytes', async () => {
+  const local = await j('POST', '/api/files/download', { url: 'http://127.0.0.1:3000/arquivo.pdf' });
+  assert.equal(local.status, 400);
+  assert.match((await local.json()).error, /endereços públicos/);
+  assert.equal((await j('POST', '/api/files/download', { url: 'http://localhost:3000/arquivo.pdf' })).status, 400);
+  const invalidScheme = await j('POST', '/api/files/download', { url: 'file:///etc/passwd' });
+  assert.equal(invalidScheme.status, 400);
+
+  const bytes = Buffer.from([0, 1, 2, 255, 254]);
+  const uploaded = await j('POST', '/api/files/upload', {
+    name: 'arquivo.bin', mime: 'application/octet-stream', data: bytes.toString('base64'),
+  });
+  const record = await uploaded.json();
+  const download = await fetch(`${base}/api/files/${record.id}/download`);
+  assert.equal(download.status, 200);
+  assert.match(download.headers.get('content-disposition'), /filename="arquivo.bin"/);
+  assert.deepEqual(Buffer.from(await download.arrayBuffer()), bytes);
+});
+
 test('upload: base64 invalido = 400; acima do limite = 413; nome com ".." no meio e aceito', async () => {
   assert.equal((await j('POST', '/api/files/upload', { name: 'x.txt', data: '%%%' })).status, 400);
   assert.equal((await j('POST', '/api/files/upload', { name: 'x.txt', data: Buffer.from('x'.repeat(5000)).toString('base64') })).status, 413);

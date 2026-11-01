@@ -36,7 +36,7 @@ jobs:
       - name: Upload Linux AppImage
         uses: actions/upload-artifact@v4
         with:
-          name: JARVES-AI-2.3.6-Linux-AppImage
+          name: JARVES-AI-2.3.7-Linux-AppImage
           path: dist/*.AppImage
           if-no-files-found: error
       - name: Publish Linux release asset

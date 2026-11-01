@@ -1066,16 +1066,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const viewSite = document.createElement('button'); viewSite.className='secondary-btn'; viewSite.textContent='Ver como site';
         viewSite.addEventListener('click', () => { window.open('/preview/' + f.id, '_blank'); });
-        const dl = document.createElement('button'); dl.className='secondary-btn'; dl.textContent='Exportar';
-        dl.addEventListener('click', async () => {
-          try {
-            const c = await api.fileContent(f.id);
-            const blob = new Blob([c.content], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = f.name; a.click();
-            URL.revokeObjectURL(url);
-          } catch (e) { toast(e.message, 'error'); }
-        });
+        const dl = document.createElement('a'); dl.className='secondary-btn'; dl.textContent='Baixar'; dl.href=api.fileDownloadUrl(f.id); dl.download=f.name;
         const btns = document.createElement('div'); btns.appendChild(view); btns.appendChild(viewSite); btns.appendChild(dl); btns.appendChild(del);
         item.appendChild(btns);
         el.appendChild(item);
@@ -1103,6 +1094,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     status.textContent = 'Concluido';
     loadFiles();
+  });
+  document.getElementById('btnDownloadNetworkFile').addEventListener('click', async event => {
+    const input = document.getElementById('networkFileUrl');
+    const status = document.getElementById('networkDownloadStatus');
+    const button = event.currentTarget;
+    const url = input.value.trim();
+    if (!url) { status.textContent = 'Cole o link público do arquivo.'; input.focus(); return; }
+    button.disabled = true;
+    status.textContent = 'Baixando arquivo conforme o limite configurado para uploads...';
+    try {
+      const file = await api.downloadFile(url);
+      status.textContent = `Arquivo salvo: ${file.name} (${file.size} bytes).`;
+      input.value = '';
+      await loadFiles();
+    } catch (error) {
+      status.textContent = `Falha no download: ${error.message}`;
+    } finally { button.disabled = false; }
   });
   document.getElementById('btnAnalyzeCode').addEventListener('click', async () => {
     const code = document.getElementById('codeInput').value;

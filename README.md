@@ -1,4 +1,4 @@
-# JARVES AI 2.3.6 — GitHub + Android
+# JARVES AI 2.3.7 — GitHub + Android
 
 Repositorio-fonte preparado a partir do pacote Windows enviado.
 
@@ -8,6 +8,7 @@ Repositorio-fonte preparado a partir do pacote Windows enviado.
 - Testes smoke e verificação de sintaxe JavaScript.
 - Cliente Android WebView em `android/`.
 - GitHub Actions compilam APK, EXE e AppImage como artefatos. Ao enviar uma tag `v*`, os três arquivos são anexados à Release correspondente no GitHub.
+- **Arquivos e código** importa arquivos locais e baixa arquivos de links HTTP/HTTPS públicos; os bytes são preservados e os downloads respeitam o limite configurado para uploads.
 
 ## Executar o servidor
 Requisitos: Node.js 22.13 ou superior.
@@ -38,9 +39,9 @@ A descoberta usa mDNS (`_jarves._tcp`) e só é anunciada quando o backend escut
 ## Gerar APK pelo GitHub
 1. Crie um repositório no GitHub e envie todos os arquivos desta pasta.
 2. Abra **Actions** e execute **Build JARVES Android APK** (workflow_dispatch). Pushes com mudanças Android, frontend, backend ou motores de IA também compilam o APK como artefato do workflow.
-3. Baixe `JARVES-AI-2.3.6-Android-APK` na seção Artifacts da execução.
-4. Para publicar o APK em Releases, crie e envie uma tag `v2.3.6`:
-   `git tag v2.3.6 && git push origin v2.3.6`
+3. Baixe `JARVES-AI-2.3.7-Android-APK` na seção Artifacts da execução.
+4. Para publicar o APK em Releases, crie e envie uma tag `v2.3.7`:
+   `git tag v2.3.7 && git push origin v2.3.7`
 
 A página de downloads está em `/download.html` quando o servidor JARVES está em execução. O workflow **Publish JARVES downloads site** publica a mesma página como site estático no GitHub Pages e a atualiza em pushes para `main`. Ela consulta o release mais recente e só mostra botões quando encontra os assets reais `app-debug.apk`, `JARVES-AI-Setup-<versão>-x64.exe` e `JARVES-AI-<versão>-x86_64.AppImage`. Os workflows de Android, Windows e Linux anexam seus instaladores à Release quando uma tag `v*` é enviada. O APK é uma compilação de depuração; o EXE não é assinado.
 
@@ -50,7 +51,7 @@ A página de downloads está em `/download.html` quando o servidor JARVES está 
 - O instalador ainda não tem assinatura de código; o Windows pode mostrar avisos do SmartScreen.
 
 ## Gerar AppImage para Linux
-- Requer Node.js 22.13+; execute `npm ci` e `npm run build:linux` para criar `dist/JARVES-AI-2.3.6-x86_64.AppImage`.
+- Requer Node.js 22.13+; execute `npm ci` e `npm run build:linux` para criar `dist/JARVES-AI-2.3.7-x86_64.AppImage`.
 - O workflow **Build JARVES Linux AppImage** gera o mesmo pacote x86_64, publica-o como artefato do Actions e o anexa à Release nas tags `v*`.
 - Os pacotes Electron incluem o diretório `executor/`, usado pelo provedor de IA, e usam ícones de aplicativo específicos para Linux e Windows. O APK inclui ícones de launcher em todas as densidades Android.
 
@@ -61,6 +62,7 @@ A página de downloads está em `/download.html` quando o servidor JARVES está 
 - Em Configurações é possível personalizar nome da IA, cor principal, efeito RGB, tema, voz/idioma e velocidade/tom da síntese de fala disponíveis no dispositivo. Essas preferências ficam neste dispositivo; síntese e reconhecimento não alteram a voz textual do modelo.
 - Também é possível carregar uma imagem PNG/JPG/WebP de até 5 MB, que é recortada e reduzida para 256×256 antes de ser guardada localmente e exibida como avatar da IA. No APK, Configurações também permite alternar entre dois ícones de launcher incluídos no pacote; imagens enviadas mudam o avatar dentro do app, mas não recompilam o ícone instalado.
 - A aba Voz e vídeo lê texto com a voz instalada, pode reproduzir junto um vídeo local e exporta o roteiro como TXT. O vídeo não é enviado, mas a voz não é incorporada/exportada no MP4; não existe um motor local de geração/edição de vídeo nesta versão.
+- Em **Arquivos e código**, o app importa arquivos do dispositivo e baixa arquivos de links HTTP/HTTPS públicos para o armazenamento local do JARVES. O download da rede usa o limite configurado para uploads; bloqueia loopback, IPs privados/locais e domínios que resolvam para esses endereços, limita redirecionamentos e não executa o conteúdo. Os bytes são gravados em fluxo para não carregar todo o arquivo na memória. Downloads e exportações mantêm os bytes originais.
 - A aba **Testes HTML** executa verificações locais da interface e consulta diagnósticos do servidor; **Relatórios** mostra o último resumo e permite exportar TXT/JSON. É possível fornecer um arquivo de texto/código nas Configurações para preparar uma solicitação de análise no Chat. A IA sugere correções em texto; não executa código nem modifica arquivos automaticamente.
 - O **Gerador** cria imagens vetoriais SVG 2D offline, malhas geométricas simples em OBJ/MTL e GLB, e um visualizador HTML local que gira o modelo ao arrastar. Para imagens rasterizadas geradas por IA, escolha **IA de imagem local (Automatic1111/Forge)** e configure um servidor local compatível com a API de Stable Diffusion WebUI; inicie-o com a API habilitada (por exemplo, `--api`). O JARVES encaminha o pedido ao computador/servidor configurado e oferece o PNG para baixar ou salvar. Não há cobrança por API nem chamada a serviço de nuvem, mas é preciso instalar o motor, baixar um modelo e ter recursos de hardware e energia; modelos podem ter licenças diferentes. Por segurança, o endereço só pode ser HTTP em loopback ou rede privada. Ollama local pode escolher a forma/cor ou gerar HTML; se não estiver disponível, o gerador informa a limitação e usa o modo offline. A geração de malhas continua procedural e limitada a cubo, esfera, cilindro e cone. A prévia de HTML usa iframe sandbox e não executa no contexto principal do app.
 - O fluxo de criação em Configurações encadeia pesquisa web opcional, geração de plano, confirmação e execução manual de etapas de IA. A pesquisa é desativada por padrão e envia a consulta ao DuckDuckGo quando ativada; o modelo usa o provedor selecionado. Etapas produzem conteúdo/código para revisão, não executam comandos nem compilam aplicativos; blocos HTML podem ser pré-visualizados em iframe isolado.

@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { env, resolvePath } from '../config/env.mjs';
 import { getDb } from './db.mjs';
 import { newId, nowIso } from './id.mjs';
@@ -54,6 +56,38 @@ export function saveUploadedFile({ originalName, buffer, mime }) {
   return getFile(id);
 }
 
+export async function saveUploadedFileStream({ originalName, stream, mime }) {
+  validateFileMeta(originalName, 0, mime);
+  ensureUploadRoot();
+  const id = newId();
+  const ext = path.extname(originalName).replace(/[^.a-zA-Z0-9]/g, '').slice(0, 16);
+  const storedName = id + ext;
+  const full = path.join(UPLOAD_ROOT, storedName);
+  let size = 0;
+  const limiter = new Transform({
+    transform(chunk, encoding, callback) {
+      size += chunk.length;
+      if (size > env.MAX_UPLOAD_BYTES) {
+        callback(Object.assign(new Error(`Arquivo excede limite de ${env.MAX_UPLOAD_BYTES} bytes`), { status: 413 }));
+        return;
+      }
+      callback(null, chunk);
+    },
+  });
+  try {
+    await pipeline(stream, limiter, fs.createWriteStream(full, { flags: 'wx' }));
+    const db = getDb();
+    db.prepare('INSERT INTO files (id,name,path,size,mime,kind,created_at,metadata) VALUES (?,?,?,?,?,?,?,?)')
+      .run(id, originalName, storedName, size, mime || null, classify(mime, originalName), nowIso(), JSON.stringify({ originalName }));
+  } catch (error) {
+    try { fs.unlinkSync(full); } catch (cleanupError) {
+      if (cleanupError.code !== 'ENOENT') console.error('[FILES] Não foi possível remover download incompleto:', cleanupError.message);
+    }
+    throw error;
+  }
+  return getFile(id);
+}
+
 export function getFile(id) {
   const db = getDb();
   const r = db.prepare('SELECT * FROM files WHERE id=?').get(id);
@@ -94,6 +128,15 @@ export function readFileBuffer(id) {
   const full = safeJoin(UPLOAD_ROOT, r.path);
   if (!fs.existsSync(full)) throw new Error('Arquivo fisico ausente');
   return { record: r, buffer: fs.readFileSync(full) };
+}
+
+export function createFileReadStream(id) {
+  const record = getFile(id);
+  if (!record) throw new Error('Arquivo nao encontrado');
+  const full = safeJoin(UPLOAD_ROOT, record.path);
+  if (!fs.existsSync(full)) throw new Error('Arquivo fisico ausente');
+  const size = fs.statSync(full).size;
+  return { record, size, stream: fs.createReadStream(full) };
 }
 
 export function analyzeCodeSnippet(code, language = 'auto') {
