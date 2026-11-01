@@ -29,7 +29,7 @@
   <main>
     <p class="eyebrow">JARVES AI · DOWNLOADS</p>
     <h1>Baixe o JARVES</h1>
-    <p>O APK abaixo só fica disponível quando uma versão real é compilada e publicada em um release. Esta página não contém um APK fictício.</p>
+    <p>Os instaladores só ficam disponíveis aqui quando os arquivos reais são publicados em um Release do GitHub. Artefatos de Actions não aparecem nesta página até serem publicados.</p>
 
     <section class="download-card" aria-labelledby="android-title">
       <h2 id="android-title">Android APK</h2>
@@ -40,7 +40,8 @@
 
     <section class="download-card" aria-labelledby="desktop-title">
       <h2 id="desktop-title">Windows EXE</h2>
-      <p class="status">Não há um EXE de desktop gerado ou publicado neste projeto. Não existe link de download até que o empacotamento Windows seja configurado e um binário real seja publicado.</p>
+      <p id="exeReleaseDetails" class="status" role="status" aria-live="polite">Consultando releases publicados…</p>
+      <a id="exeDownload" class="button" hidden>Baixar instalador Windows</a>
     </section>
 
     <footer>
@@ -51,8 +52,21 @@
     const repository = 'pedromimiguel407-commits/jarve-apk-2.0';
     const status = document.getElementById('releaseDetails');
     const download = document.getElementById('apkDownload');
+    const exeStatus = document.getElementById('exeReleaseDetails');
+    const exeDownload = document.getElementById('exeDownload');
     const releasesLink = document.getElementById('allReleases');
     releasesLink.href = `https://github.com/${repository}/releases`;
+    function showDownload(asset, link) {
+      if (!asset || typeof asset.browser_download_url !== 'string') return false;
+      try {
+        const url = new URL(asset.browser_download_url);
+        if (url.protocol !== 'https:' || url.hostname !== 'github.com') return false;
+        link.href = url.href;
+        link.download = asset.name;
+        link.hidden = false;
+        return true;
+      } catch { return false; }
+    }
     fetch(`https://api.github.com/repos/${repository}/releases/latest`, {
       headers: { Accept: 'application/vnd.github+json' },
       cache: 'no-store',
@@ -61,16 +75,20 @@
       return response.json();
     }).then(release => {
       const apk = (release.assets || []).find(asset => asset.name === 'app-debug.apk' && typeof asset.browser_download_url === 'string');
-      if (!apk) throw new Error('O release mais recente ainda não contém um APK.');
-      const url = new URL(apk.browser_download_url);
-      if (url.protocol !== 'https:' || url.hostname !== 'github.com') throw new Error('O endereço do APK publicado não é válido.');
-      download.href = url.href;
-      download.download = apk.name;
-      download.hidden = false;
-      status.textContent = `Versão ${release.tag_name} · publicada em ${new Date(release.published_at).toLocaleDateString('pt-BR')}`;
+      const exe = (release.assets || []).find(asset => /^JARVES-AI-Setup-.+-x64\.exe$/i.test(asset.name) && typeof asset.browser_download_url === 'string');
+      const publishedDate = release.published_at ? new Date(release.published_at).toLocaleDateString('pt-BR') : 'data indisponível';
+      const versionLabel = `Versão ${release.tag_name} · ${publishedDate}`;
+      status.textContent = showDownload(apk, download)
+        ? `${versionLabel} · APK disponível.`
+        : `${versionLabel} · este release ainda não tem APK.`;
+      exeStatus.textContent = showDownload(exe, exeDownload)
+        ? `${versionLabel} · instalador disponível.`
+        : `${versionLabel} · este release ainda não tem instalador Windows. O EXE é gerado como artefato do Actions.`;
     }).catch(error => {
       status.dataset.state = 'error';
       status.textContent = `${error.message} Execute o workflow de APK e publique uma tag v* para disponibilizar o download.`;
+      exeStatus.dataset.state = 'error';
+      exeStatus.textContent = 'Nenhum EXE publicado em um Release. Consulte os artefatos do workflow Windows no GitHub Actions.';
     });
   </script>
 </body>

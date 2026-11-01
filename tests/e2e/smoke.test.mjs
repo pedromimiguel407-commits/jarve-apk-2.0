@@ -18,13 +18,14 @@ test('frontend index exists and has key controls', () => {
   }
 });
 
-test('download page only enables APK download from a published GitHub release', () => {
+test('download page only enables APK and EXE downloads from a published GitHub release', () => {
   const html = fs.readFileSync(path.join(root, 'frontend/download.html'), 'utf8');
   assert.match(html, /const repository = 'pedromimiguel407-commits\/jarve-apk-2\.0'/);
   assert.match(html, /api\.github\.com\/repos\/\$\{repository\}\/releases\/latest/);
   assert.match(html, /asset\.name === 'app-debug\.apk'/);
-  assert.match(html, /Não há um EXE de desktop gerado ou publicado/);
-  assert.match(html, /download\.hidden = false/);
+  assert.match(html, /exeDownload/);
+  assert.match(html, /JARVES-AI-Setup-.*x64\\\.exe/);
+  assert.match(html, /link\.hidden = false/);
 });
 
 test('HTML diagnostics run on demand and offer reviewed repair prompts', () => {
