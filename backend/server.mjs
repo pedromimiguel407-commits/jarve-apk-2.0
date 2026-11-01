@@ -14,6 +14,7 @@ import filesRouter from './routes/files.mjs';
 import tasksRouter from './routes/tasks.mjs';
 import researchRouter from './routes/research.mjs';
 import diagnosticsRouter from './routes/diagnostics.mjs';
+import imagesRouter from './routes/images.mjs';
 
 ensureDirs();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -41,6 +42,7 @@ app.use('/api/files', filesRouter);
 app.use('/api/tasks', adminGuard, tasksRouter);
 app.use('/api/research', researchRouter);
 app.use('/api/diagnostics', diagnosticsRouter);
+app.use('/api/images', imagesRouter);
 
 // Public preview of uploaded file as site
 // Pre-visualizacao de arquivo enviado. Conteudo do usuario NUNCA roda na origem do app:

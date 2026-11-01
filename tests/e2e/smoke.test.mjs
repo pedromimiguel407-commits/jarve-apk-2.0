@@ -7,30 +7,43 @@ const root = path.resolve(process.cwd());
 
 test('frontend index exists and has key controls', () => {
   const html = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8');
-  for (const id of ['btnMenu','btnNewChat','btnSend','btnStop','btnClear','modelSelect','btnSaveSettings','btnUpload','btnPlan','btnRunTask']) {
+  for (const id of ['btnMenu','btnNewChat','btnUnifyChats','btnSend','btnStop','btnClear','modelSelect','btnSaveSettings','btnUpload','btnPlan','btnRunTask']) {
     assert.ok(html.includes('id="' + id + '"'), 'missing ' + id);
   }
   const navigation = html.match(/<nav class="tool-nav primary-nav"[\s\S]*?<\/nav>/)?.[0] || '';
   assert.deepEqual([...navigation.matchAll(/data-view="([^"]+)"/g)].map(match => match[1]), ['chat']);
   const chatTools = html.match(/<section class="chat-tools[\s\S]*?<\/section>/)?.[0] || '';
   assert.deepEqual([...chatTools.matchAll(/data-chat-tool="([^"]+)"/g)].map(match => match[1]), ['gerador', 'voice-studio', 'html-tests', 'reports', 'agents', 'tasks', 'files', 'memory', 'settings']);
-  for (const id of ['btnChatTools','btnCloseChatTools','btnBackToChat','chatTools']) assert.ok(html.includes(`id="${id}"`), 'missing unified chat control ' + id);
+  for (const id of ['btnChatTools','btnCloseChatTools','btnBackToChat','chatTools','btnVoice','voiceCommandStatus']) assert.ok(html.includes(`id="${id}"`), 'missing unified chat control ' + id);
   assert.match(html, /id="view-html-tests"[\s\S]*id="btnRunHtmlTests"/);
   const generator = fs.readFileSync(path.join(root, 'frontend/scripts/gerador.js'), 'utf8');
   assert.match(generator, /value="modelo-3d"/);
+  assert.match(generator, /Automatic1111\/Forge/);
+  assert.match(generator, /generateImage\(\{ prompt, width: 768, height: 768, steps: 20 \}\)/);
+  assert.match(generator, /encoding: 'base64'/);
   assert.match(generator, /provider: 'ollama'/);
   assert.doesNotMatch(generator, /nav\.insertBefore/);
   assert.match(navigation, /href="\/download\.html"/);
-  for (const id of ['aiDisplayName','accentColor','rgbMode','aiAvatarInput','aiAvatarPreview','btnResetAiAvatar','launcherIcon','launcherIconStatus','speechLanguage','speechVoice','speechRate','speechPitch','btnTestVoice','btnRunHtmlTests','btnRunDiag','repairInput','repairFile','btnAskFix','workflowGoal','btnWorkflowResearch','btnWorkflowPlan','btnWorkflowCreate','btnWorkflowExecute','btnWorkflowPreview','workflowPreview','studioNarration','studioVideoFile','studioVideo','btnSpeakNarration','btnPlayAndSpeak']) {
+  for (const id of ['aiDisplayName','accentColor','rgbMode','aiAvatarInput','aiAvatarPreview','btnResetAiAvatar','launcherIcon','launcherIconStatus','androidServerPanel','androidServerUrl','btnConnectAndroidServer','androidServerStatus','speechLanguage','speechVoice','speechRate','speechPitch','btnTestVoice','btnRunHtmlTests','btnRunDiag','repairInput','repairFile','btnAskFix','workflowGoal','btnWorkflowResearch','btnWorkflowPlan','btnWorkflowCreate','btnWorkflowExecute','btnWorkflowPreview','workflowPreview','studioNarration','studioVideoFile','studioVideo','btnSpeakNarration','btnPlayAndSpeak']) {
     assert.ok(html.includes(`id="${id}"`), 'missing preference/diagnostic control ' + id);
   }
   const appScript = fs.readFileSync(path.join(root, 'frontend/scripts/app.js'), 'utf8');
+  assert.match(html, /Hospedar o backend e executar a IA dentro do próprio Android ainda não é suportado/);
+  for (const command of ['enviar','limpar texto','novo chat','parar resposta']) assert.ok(html.includes(command), `missing voice command hint: ${command}`);
+  assert.match(appScript, /connectToServer\(address\)/);
+  assert.match(appScript, /androidBridge\.getServerStatus\(\)/);
+  for (const command of ['enviar mensagem','limpar texto','nova conversa','parar resposta']) assert.ok(appScript.includes(command), `missing voice command handler: ${command}`);
+  assert.match(appScript, /SpeechRec/);
+  assert.match(appScript, /startVoiceRecognition\(preferences\.speechLanguage\)/);
   assert.match(appScript, /area\.appendChild\(welcome\);\s*applyPreferences\(\);/);
 });
 
 test('download page only enables APK, EXE, and AppImage downloads from a published GitHub release', () => {
   const html = fs.readFileSync(path.join(root, 'frontend/download.html'), 'utf8');
   assert.match(html, /const repository = 'pedromimiguel407-commits\/jarve-apk-2\.0'/);
+  assert.match(html, /Atualização v2\.3\.6 em preparação/);
+  assert.match(html, /pull\/6/);
+  assert.match(html, /somente a versão mais recente já publicada/);
   assert.match(html, /api\.github\.com\/repos\/\$\{repository\}\/releases\/latest/);
   assert.match(html, /asset\.name === 'app-debug\.apk'/);
   assert.match(html, /exeDownload/);
@@ -43,6 +56,7 @@ test('download page only enables APK, EXE, and AppImage downloads from a publish
 test('Linux packaging builds only an x64 AppImage and uploads it from CI', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/linux-appimage.yml'), 'utf8');
+  const windowsWorkflow = fs.readFileSync(path.join(root, '.github/workflows/windows-exe.yml'), 'utf8');
   assert.match(packageJson.scripts['build:linux'], /--linux AppImage --x64/);
   assert.deepEqual(packageJson.build.linux.target, [{ target: 'AppImage', arch: ['x64'] }]);
   assert.ok(packageJson.build.files.includes('executor/**/*'));
@@ -50,6 +64,7 @@ test('Linux packaging builds only an x64 AppImage and uploads it from CI', () =>
   assert.equal(packageJson.build.linux.icon, 'build/icon.png');
   assert.equal(packageJson.build.win.icon, 'build/icon.ico');
   const manifest = fs.readFileSync(path.join(root, 'android/app/src/main/AndroidManifest.xml'), 'utf8');
+  assert.match(manifest, /android\.speech\.RecognitionService/);
   assert.match(manifest, /android:icon="@mipmap\/ic_launcher"/);
   assert.match(manifest, /android:name="\.RobotLauncher"/);
   const androidActivity = fs.readFileSync(path.join(root, 'android/app/src/main/java/com/jarves/ai/MainActivity.java'), 'utf8');
@@ -60,17 +75,22 @@ test('Linux packaging builds only an x64 AppImage and uploads it from CI', () =>
   assert.match(appScript, /500_000/);
   assert.match(workflow, /npm run build:linux/);
   assert.match(workflow, /dist\/\*\.AppImage/);
+  for (const releaseWorkflow of [workflow, windowsWorkflow]) {
+    assert.match(releaseWorkflow, /tags: \['v\*'\]/);
+    assert.match(releaseWorkflow, /softprops\/action-gh-release@v2/);
+    assert.match(releaseWorkflow, /fail_on_unmatched_files: true/);
+  }
 });
 
 test('Android launcher icons target the declared activity and expose only packaged choices', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const androidBuild = fs.readFileSync(path.join(root, 'android/app/build.gradle'), 'utf8');
   const environment = fs.readFileSync(path.join(root, 'backend/config/env.mjs'), 'utf8');
-  assert.equal(packageJson.version, '2.3.5');
-  assert.match(androidBuild, /versionCode 235[\s\S]*versionName '2\.3\.5'/);
-  assert.match(environment, /APP_VERSION = '2\.3\.5'/);
+  assert.equal(packageJson.version, '2.3.6');
+  assert.match(androidBuild, /versionCode 236[\s\S]*versionName '2\.3\.6'/);
+  assert.match(environment, /APP_VERSION = '2\.3\.6'/);
   const manifest = fs.readFileSync(path.join(root, 'android/app/src/main/AndroidManifest.xml'), 'utf8');
-  for (const permission of ['INTERNET', 'ACCESS_NETWORK_STATE', 'ACCESS_WIFI_STATE', 'CHANGE_NETWORK_STATE', 'CHANGE_WIFI_MULTICAST_STATE']) {
+  for (const permission of ['INTERNET', 'ACCESS_NETWORK_STATE', 'ACCESS_WIFI_STATE', 'CHANGE_NETWORK_STATE', 'CHANGE_WIFI_MULTICAST_STATE', 'RECORD_AUDIO']) {
     assert.match(manifest, new RegExp(`android:name="android\\.permission\\.${permission}"`));
   }
   const activityIndex = manifest.indexOf('android:name=".MainActivity"');
@@ -89,6 +109,12 @@ test('Android launcher icons target the declared activity and expose only packag
   assert.match(activity, /bindProcessToNetwork\(network\)/);
   assert.match(activity, /verifyManualServer\(pendingServerUrl\)/);
   assert.match(activity, /checkServerHealth\(serverUrl, network\)/);
+  assert.match(activity, /getServerUrl\(\)/);
+  assert.match(activity, /connectToServer\(String address\)/);
+  assert.match(activity, /getServerStatus\(\)/);
+  assert.match(activity, /startVoiceRecognition\(String language\)/);
+  assert.match(activity, /SpeechRecognizer\.createSpeechRecognizer\(this\)/);
+  assert.match(activity, /REQUEST_AUDIO_PERMISSION/);
   const discovery = fs.readFileSync(path.join(root, 'backend/services/lanDiscovery.mjs'), 'utf8');
   assert.match(discovery, /type: 'jarves'/);
   assert.match(discovery, /txt: \{ app: 'jarves-ai', version \}/);

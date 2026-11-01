@@ -14,6 +14,12 @@ router.post('/', (req, res) => {
   res.status(201).json(c);
 });
 
+router.post('/unify', (req, res) => {
+  const result = CR.unifyConversations();
+  if (!result) return res.status(400).json({ error: 'Ainda não há mensagens para reunir em um chat.' });
+  res.json(result);
+});
+
 router.get('/:id', (req, res) => {
   const c = CR.getConversation(req.params.id);
   if (!c) return res.status(404).json({ error: 'Conversa nao encontrada' });

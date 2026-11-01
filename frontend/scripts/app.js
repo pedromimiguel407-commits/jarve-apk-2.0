@@ -109,6 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (v === 'memory') loadMemory();
     if (v === 'tasks') loadTasks();
     if (v === 'settings') { loadSettings(); loadReports(); }
+    if (v === 'settings') loadAndroidServerSettings();
     if (v === 'html-tests') loadDiagnostics();
     if (v === 'diagnostics') loadDiagnostics();
     if (v === 'reports') loadReports();
@@ -152,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
       item.className = 'conv-item' + (c.id === state.currentConversationId ? ' active' : '');
       const title = document.createElement('div');
       title.className = 'conv-title';
-      title.textContent = c.title || 'Sem titulo';
+      title.textContent = (c.is_unified ? '🗂 ' : '') + (c.title || 'Sem titulo');
       const ren = document.createElement('button');
       ren.className = 'conv-del';
       ren.textContent = '✎';
@@ -221,10 +222,13 @@ document.addEventListener('DOMContentLoaded', () => {
     body.className = 'msg-body';
     body.innerHTML = renderMarkdown(content || '');
     div.appendChild(body);
-    if (meta.model || meta.provider) {
+    if (meta.source_conversation_title || meta.model || meta.provider) {
       const m = document.createElement('div');
       m.className = 'msg-meta';
-      m.textContent = [preferences.aiName, meta.provider, meta.model].filter(Boolean).join(' • ');
+      m.textContent = [
+        meta.source_conversation_title ? 'Histórico: ' + meta.source_conversation_title : null,
+        preferences.aiName, meta.provider, meta.model,
+      ].filter(Boolean).join(' • ');
       div.appendChild(m);
     }
     if (role === 'assistant') {
@@ -388,29 +392,150 @@ document.addEventListener('DOMContentLoaded', () => {
   // Voice input (speech-to-text) if supported
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   const btnVoice = document.getElementById('btnVoice');
+  const voiceCommandStatus = document.getElementById('voiceCommandStatus');
+  const androidBridge = window.JarvesAndroid;
+  let listening = false;
   let speechRecognition = null;
-  if (SpeechRec) {
+  function finishListening() {
+    listening = false;
+    btnVoice.textContent = '◖ Voz';
+    btnVoice.classList.remove('listening');
+    btnVoice.setAttribute('aria-pressed', 'false');
+  }
+  function normalizeVoiceCommand(text) {
+    return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[.!?,;:]/g, '').trim();
+  }
+  function handleVoiceResult(text) {
+    const command = normalizeVoiceCommand(text);
+    const input = document.getElementById('input');
+    if (['enviar', 'enviar pedido', 'enviar mensagem', 'enviar agora', 'mande agora'].includes(command)) {
+      if (!input.value.trim()) {
+        voiceCommandStatus.textContent = 'Não há pedido escrito para enviar.';
+      } else if (state.generating) {
+        voiceCommandStatus.textContent = 'Aguarde a resposta atual terminar antes de enviar outro pedido.';
+      } else {
+        voiceCommandStatus.textContent = 'Enviando seu pedido...';
+        sendMessage();
+      }
+      return;
+    }
+    if (['limpar texto', 'apagar texto', 'apagar mensagem'].includes(command)) {
+      input.value = '';
+      saveDraft('');
+      voiceCommandStatus.textContent = 'Texto apagado.';
+      return;
+    }
+    if (['novo chat', 'nova conversa'].includes(command)) {
+      if (state.generating) {
+        voiceCommandStatus.textContent = 'Aguarde a resposta atual terminar antes de iniciar outra conversa.';
+      } else {
+        document.getElementById('btnNewChat').click();
+        voiceCommandStatus.textContent = 'Nova conversa iniciada.';
+      }
+      return;
+    }
+    if (['parar resposta', 'cancelar resposta', 'parar'].includes(command)) {
+      if (state.generating) {
+        document.getElementById('btnStop').click();
+        voiceCommandStatus.textContent = 'Solicitei a interrupção da resposta.';
+      } else {
+        voiceCommandStatus.textContent = 'Não há resposta em andamento.';
+      }
+      return;
+    }
+    input.value = (input.value ? input.value.trimEnd() + ' ' : '') + text.trim();
+    saveDraft(input.value);
+    input.focus();
+    voiceCommandStatus.textContent = 'Pedido transcrito. Revise e toque em Enviar, ou diga “enviar”.';
+  }
+  window.jarvesNativeVoiceResult = text => {
+    handleVoiceResult(text);
+    finishListening();
+  };
+  window.jarvesNativeVoiceError = code => {
+    finishListening();
+    const messages = {
+      permission: 'Permissão de microfone negada. Autorize o microfone nas configurações do Android.',
+      'no-speech': 'Nenhuma fala detectada. Toque em Voz e tente novamente.',
+      network: 'O serviço de voz precisa de rede neste dispositivo.',
+      unavailable: 'O reconhecimento de voz não está disponível neste dispositivo.',
+      cancelled: 'Ditado cancelado.',
+    };
+    voiceCommandStatus.textContent = messages[code] || `Falha no reconhecimento de voz: ${code}.`;
+  };
+  window.jarvesNativeVoiceStatus = status => {
+    voiceCommandStatus.textContent = status === 'listening' ? 'Ouvindo... fale seu pedido ou um comando.' : 'Processando fala...';
+  };
+  if (androidBridge && typeof androidBridge.startVoiceRecognition === 'function') {
+    btnVoice.addEventListener('click', () => {
+      if (listening) {
+        androidBridge.stopVoiceRecognition();
+        finishListening();
+        voiceCommandStatus.textContent = 'Ditado cancelado.';
+        return;
+      }
+      try {
+        if (!androidBridge.startVoiceRecognition(preferences.speechLanguage)) {
+          voiceCommandStatus.textContent = 'Não foi possível iniciar o reconhecimento de voz.';
+          return;
+        }
+        listening = true;
+        btnVoice.textContent = 'Ouvindo...';
+        btnVoice.classList.add('listening');
+        btnVoice.setAttribute('aria-pressed', 'true');
+        voiceCommandStatus.textContent = 'Solicitando acesso ao microfone...';
+      } catch (error) {
+        finishListening();
+        voiceCommandStatus.textContent = `Falha ao iniciar a voz: ${error.message}`;
+      }
+    });
+  } else if (SpeechRec) {
     const rec = new SpeechRec();
     speechRecognition = rec;
     rec.lang = preferences.speechLanguage;
     rec.continuous = false;
-    rec.interimResults = false;
-    let listening = false;
+    rec.interimResults = true;
     btnVoice.addEventListener('click', () => {
       if (listening) { rec.stop(); return; }
-      listening = true; btnVoice.textContent = 'Ouvindo...';
-      try { rec.start(); } catch { listening = false; btnVoice.textContent = 'Voz'; }
+      rec.lang = preferences.speechLanguage;
+      voiceCommandStatus.textContent = 'Ouvindo... fale seu pedido ou um comando.';
+      try {
+        rec.start();
+        listening = true;
+        btnVoice.textContent = 'Ouvindo...';
+        btnVoice.classList.add('listening');
+        btnVoice.setAttribute('aria-pressed', 'true');
+      } catch {
+        finishListening();
+        voiceCommandStatus.textContent = 'O microfone já está ativo. Aguarde ou toque novamente.';
+      }
     });
-    rec.onresult = (e) => {
-      const t = e.results[0][0].transcript;
-      const input = document.getElementById('input');
-      input.value = (input.value ? input.value + ' ' : '') + t;
-      saveDraft(input.value);
+    rec.onresult = event => {
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        const transcript = result[0]?.transcript?.trim();
+        if (!transcript) continue;
+        if (result.isFinal) handleVoiceResult(transcript);
+        else voiceCommandStatus.textContent = `Ouvindo: ${transcript}`;
+      }
     };
-    rec.onend = () => { listening = false; btnVoice.textContent = 'Voz'; };
-    rec.onerror = () => { listening = false; btnVoice.textContent = 'Voz'; };
+    rec.onend = finishListening;
+    rec.onerror = event => {
+      finishListening();
+      const messages = {
+        'not-allowed': 'Permissão de microfone negada. Autorize o microfone nas configurações do navegador.',
+        'service-not-allowed': 'O serviço de reconhecimento de voz está bloqueado neste dispositivo.',
+        'no-speech': 'Nenhuma fala detectada. Toque em Voz e tente novamente.',
+        network: 'O reconhecimento de voz precisa de rede neste dispositivo. Verifique a conexão e tente novamente.',
+        'audio-capture': 'Nenhum microfone disponível foi encontrado.',
+        aborted: 'Ditado cancelado.',
+      };
+      voiceCommandStatus.textContent = messages[event.error] || `Falha no reconhecimento de voz: ${event.error || 'erro desconhecido'}.`;
+    };
   } else {
-    btnVoice.disabled = true; btnVoice.title = 'Nao suportado neste navegador';
+    btnVoice.disabled = true;
+    btnVoice.title = 'Reconhecimento de voz não suportado neste navegador';
+    voiceCommandStatus.textContent = 'Ditado indisponível neste navegador. Você ainda pode digitar seu pedido.';
   }
   document.getElementById('speechLanguage').addEventListener('change', e => {
     preferences.speechLanguage = e.target.value;
@@ -441,6 +566,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('convTitle').textContent = 'Nova conversa';
     renderChat();
     closeSidebar();
+  });
+  document.getElementById('btnUnifyChats').addEventListener('click', async (event) => {
+    if (state.generating) { toast('Aguarde a resposta atual terminar antes de unificar.', 'error'); return; }
+    if (!confirm('Criar ou atualizar o Chat unificado com as mensagens de todas as conversas? As conversas originais serão mantidas.')) return;
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const result = await api.unifyConversations();
+      await loadConversations();
+      await selectConversation(result.conversation.id);
+      toast(result.importedCount
+        ? `${result.importedCount} mensagem(ns) reunida(s) de ${result.sourceCount} conversa(s).`
+        : 'O Chat unificado já está atualizado.');
+    } catch (error) { toast(error.message, 'error'); }
+    finally { button.disabled = false; }
   });
   document.getElementById('btnClear').addEventListener('click', () => {
     state.currentConversationId = null;
@@ -524,7 +664,68 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   const launcherIconSelect = document.getElementById('launcherIcon');
   const launcherIconStatus = document.getElementById('launcherIconStatus');
-  const androidBridge = window.JarvesAndroid;
+  const androidServerPanel = document.getElementById('androidServerPanel');
+  const androidServerUrl = document.getElementById('androidServerUrl');
+  const androidServerStatus = document.getElementById('androidServerStatus');
+  const connectAndroidServerButton = document.getElementById('btnConnectAndroidServer');
+  function loadAndroidServerSettings() {
+    if (!androidBridge) return;
+    try {
+      androidServerUrl.value = androidBridge.getServerUrl() || '';
+      const status = androidBridge.getServerStatus();
+      androidServerStatus.textContent = status === 'connected'
+        ? 'Conectado ao servidor JARVES.'
+        : status === 'checking'
+          ? 'Validando o servidor em /api/health...'
+          : status === 'error'
+            ? 'A conexão falhou. Confira o endereço, a rede e o firewall.'
+            : 'Desconectado. O servidor deve estar ligado em outro dispositivo.';
+    } catch (error) {
+      androidServerStatus.textContent = `Não foi possível ler a conexão salva: ${error.message}`;
+    }
+  }
+  if (!androidBridge) {
+    androidServerPanel.hidden = true;
+  } else {
+    loadAndroidServerSettings();
+    connectAndroidServerButton.addEventListener('click', () => {
+      const address = androidServerUrl.value.trim();
+      if (!address) {
+        androidServerStatus.textContent = 'Informe o endereço do servidor.';
+        androidServerUrl.focus();
+        return;
+      }
+      try {
+        if (androidBridge.connectToServer(address)) {
+          androidServerStatus.textContent = 'Validando o servidor em /api/health...';
+          connectAndroidServerButton.disabled = true;
+          let attempts = 0;
+          const pollStatus = () => {
+            attempts += 1;
+            const status = androidBridge.getServerStatus();
+            if (status === 'connected') {
+              androidServerStatus.textContent = 'Conectado ao servidor JARVES.';
+              connectAndroidServerButton.disabled = false;
+            } else if (status === 'error') {
+              androidServerStatus.textContent = 'Falha ao validar /api/health. Confira o endereço, a rede e o firewall.';
+              connectAndroidServerButton.disabled = false;
+            } else if (status === 'checking' && attempts < 16) {
+              window.setTimeout(pollStatus, 500);
+            } else {
+              androidServerStatus.textContent = 'A validação está demorando. Confira se o servidor responde em /api/health.';
+              connectAndroidServerButton.disabled = false;
+            }
+          };
+          window.setTimeout(pollStatus, 500);
+        } else {
+          androidServerStatus.textContent = 'Endereço inválido. Use http:// ou https:// e o IP/nome do computador.';
+        }
+      } catch (error) {
+        androidServerStatus.textContent = `Não foi possível iniciar a conexão: ${error.message}`;
+        connectAndroidServerButton.disabled = false;
+      }
+    });
+  }
   if (androidBridge) {
     launcherIconSelect.value = androidBridge.getLauncherIcon() === 'robot' ? 'robot' : 'default';
     launcherIconSelect.addEventListener('change', () => {

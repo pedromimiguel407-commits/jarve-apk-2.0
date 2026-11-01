@@ -1,19 +1,20 @@
 import express from 'express';
 import * as S from '../../database/repositories/settingsRepository.mjs';
 import { env } from '../config/env.mjs';
+import { DEFAULT_IMAGE_GENERATOR_URL, validateImageGeneratorUrl } from '../services/imageGenerationService.mjs';
 
 const router = express.Router();
 
 const ALLOWED = new Set([
   'ai_provider','ollama_base_url','ollama_model','openai_base_url','openai_api_key','openai_model','ai_timeout_ms',
-  'theme','language','memory_enabled','max_upload_bytes','research_enabled','ai_quality',
+  'theme','language','memory_enabled','max_upload_bytes','research_enabled','ai_quality','image_gen_url',
 ]);
 
 router.get('/', (req, res) => {
   const all = S.getAllSettings();
   // mask secret
   if (all.openai_api_key) all.openai_api_key = '***' + String(all.openai_api_key).slice(-4);
-  res.json({ settings: all, defaults: { ai_provider: env.AI_PROVIDER, ollama_base_url: env.OLLAMA_BASE_URL, ollama_model: env.OLLAMA_MODEL, research_enabled: String(env.RESEARCH_ENABLED) } });
+  res.json({ settings: all, defaults: { ai_provider: env.AI_PROVIDER, ollama_base_url: env.OLLAMA_BASE_URL, ollama_model: env.OLLAMA_MODEL, research_enabled: String(env.RESEARCH_ENABLED), image_gen_url: DEFAULT_IMAGE_GENERATOR_URL } });
 });
 
 router.get('/:key', (req, res) => {
@@ -39,6 +40,10 @@ router.put('/:key', (req, res) => {
   if (['ollama_base_url', 'openai_base_url'].includes(key) && value) {
     try { const u = new URL(String(value)); if (!['http:', 'https:'].includes(u.protocol)) throw new Error(); }
     catch { return res.status(400).json({ error: 'URL invalida: use http:// ou https://' }); }
+  }
+  if (key === 'image_gen_url' && value) {
+    try { validateImageGeneratorUrl(value); }
+    catch (error) { return res.status(400).json({ error: error.message }); }
   }
   if (key === 'openai_api_key' && (typeof value !== 'string' || value.length > 4096)) return res.status(400).json({ error: 'API key invalida' });
   if (key === 'ai_timeout_ms' && Number(value) > 600000) return res.status(400).json({ error: 'timeout maximo: 600000 ms' });

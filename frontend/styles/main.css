@@ -107,3 +107,8 @@
 .chat-tool-grid small { color: var(--muted); font: inherit; font-size: 12px; }
 #btnChatTools, #btnBackToChat { white-space: nowrap; }
 @media (max-width: 560px) { .topbar-actions #btnChatTools, .topbar-actions #btnBackToChat { padding: 8px; font-size: 10px; } .chat-tools { max-height: 38vh; } }
+.composer-actions #btnVoice.listening { color: #fff; background: var(--danger); border-color: var(--danger); animation: voice-pulse 1.2s ease-in-out infinite alternate; }
+.voice-command-status:empty { display: none; }
+@keyframes voice-pulse { to { box-shadow: 0 0 0 5px color-mix(in srgb,var(--danger) 24%,transparent); } }
+@media(prefers-reduced-motion:reduce) { .composer-actions #btnVoice.listening { animation: none; } }
+.history-tools #btnUnifyChats{width:100%;margin-top:8px;padding:8px 10px;font-size:12px}

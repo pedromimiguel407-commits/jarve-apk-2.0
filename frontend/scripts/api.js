@@ -33,6 +33,7 @@ const api = {
   health: () => request('/api/health'),
   listConversations: (search) => request('/api/conversations' + (search ? '?search=' + encodeURIComponent(search) : '')),
   createConversation: (payload) => request('/api/conversations', { method: 'POST', body: payload || {} }),
+  unifyConversations: () => request('/api/conversations/unify', { method: 'POST', body: {} }),
   getConversation: (id) => request('/api/conversations/' + idPath(id)),
   updateConversation: (id, payload) => request('/api/conversations/' + idPath(id), { method: 'PATCH', body: payload }),
   deleteConversation: (id) => request('/api/conversations/' + idPath(id), { method: 'DELETE' }),
@@ -64,6 +65,8 @@ const api = {
   research: (query, limit = 8) => request('/api/research', { method: 'POST', body: { query, limit } }),
   runDiagnostics: (opts) => request('/api/diagnostics/run', { method: 'POST', body: opts || {} }),
   lastDiagnostics: () => request('/api/diagnostics/last'),
+  imageGeneratorStatus: () => request('/api/images/status'),
+  generateImage: (payload) => request('/api/images/generate', { method: 'POST', body: payload }),
   exportDiagnostics: (format) => '/api/diagnostics/export?format=' + encodeURIComponent(format),
 };
 window.api = api;

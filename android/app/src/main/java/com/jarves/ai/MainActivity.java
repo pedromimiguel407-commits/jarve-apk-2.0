@@ -16,9 +16,14 @@ import android.net.wifi.WifiManager;
 import android.content.pm.PackageManager;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.Manifest;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Bundle;
+import android.speech.RecognizerIntent;
+import android.speech.RecognitionListener;
+import android.speech.SpeechRecognizer;
 import android.view.View;
 import android.view.Window;
 import android.webkit.WebChromeClient;
@@ -43,6 +48,7 @@ import java.net.InetAddress;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.Set;
 
 public class MainActivity extends Activity {
@@ -50,6 +56,7 @@ public class MainActivity extends Activity {
     private static final String KEY_URL = "server_url";
     private static final String KEY_LAUNCHER_ICON = "launcher_icon";
     private static final int PICK_FILE_REQUEST = 7412;
+    private static final int REQUEST_AUDIO_PERMISSION = 7413;
     private static final String JARVES_SERVICE_TYPE = "_jarves._tcp.";
     private static final int DISCOVERY_TIMEOUT_MS = 15000;
     private WebView webView;
@@ -72,6 +79,12 @@ public class MainActivity extends Activity {
     private Network activeWifiNetwork;
     private String pendingServerUrl = "";
     private String serverErrorMessage = "";
+    private volatile String serverConnectionStatus = "disconnected";
+    private int manualServerCheckGeneration;
+    private SpeechRecognizer speechRecognizer;
+    private String pendingSpeechLanguage = "pt-BR";
+    private boolean speechStartPending;
+    private boolean userCancelledSpeech;
     private final ConnectivityManager.NetworkCallback wifiNetworkCallback = new ConnectivityManager.NetworkCallback() {
         @Override public void onAvailable(Network network) {
             NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
@@ -85,6 +98,7 @@ public class MainActivity extends Activity {
                     activeWifiNetwork = null;
                     connectivityManager.bindProcessToNetwork(null);
                     serverConnected = false;
+                    serverConnectionStatus = "disconnected";
                     serverUrlLoadPending = false;
                     loading.setVisibility(View.VISIBLE);
                     loading.setText("Wi-Fi desconectado · aguardando a rede para procurar JARVES...");
@@ -145,6 +159,10 @@ public class MainActivity extends Activity {
 
     @Override protected void onDestroy() {
         stopDiscovery();
+        if (speechRecognizer != null) {
+            speechRecognizer.destroy();
+            speechRecognizer = null;
+        }
         if (fileChooserCallback != null) {
             fileChooserCallback.onReceiveValue(null);
             fileChooserCallback = null;
@@ -197,12 +215,14 @@ public class MainActivity extends Activity {
             @Override public void onPageFinished(WebView view, String url) {
                 serverUrlLoadPending = false;
                 serverConnected = true;
+                serverConnectionStatus = "connected";
                 loading.setVisibility(View.GONE);
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) {
                     serverUrlLoadPending = false;
                     serverConnected = false;
+                    serverConnectionStatus = "error";
                     loading.setVisibility(View.VISIBLE);
                     int errorCode = error.getErrorCode();
                     String description = error.getDescription() == null ? "erro de rede" : error.getDescription().toString();
@@ -302,6 +322,8 @@ public class MainActivity extends Activity {
     }
 
     private void verifyManualServer(String serverUrl) {
+        final int generation = ++manualServerCheckGeneration;
+        serverConnectionStatus = "checking";
         loading.setVisibility(View.VISIBLE);
         loading.setText("Verificando o servidor " + serverUrl + "...");
         final Network network = activeWifiNetwork;
@@ -314,12 +336,14 @@ public class MainActivity extends Activity {
             }
             final String result = error;
             mainHandler.post(() -> {
-                if (isFinishing()) return;
+                if (isFinishing() || generation != manualServerCheckGeneration) return;
                 if (result == null) {
                     serverErrorMessage = "";
                     pendingServerUrl = "";
+                    serverConnectionStatus = "connected";
                     loadServer(serverUrl);
                 } else {
+                    serverConnectionStatus = "error";
                     serverErrorMessage = "Não consegui validar " + serverUrl + ": " + result
                         + ". Confirme o endereço, a porta 3000, a rede Wi-Fi e o firewall do computador.";
                     loading.setText("Servidor não respondeu · confira o endereço e tente novamente.");
@@ -515,6 +539,98 @@ public class MainActivity extends Activity {
         if (multicastLock != null && multicastLock.isHeld()) multicastLock.release();
     }
 
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_AUDIO_PERMISSION || !speechStartPending) return;
+        speechStartPending = false;
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            startAndroidSpeechRecognition();
+        } else {
+            notifyVoiceError("permission");
+        }
+    }
+
+    private void beginAndroidSpeechRecognition(String language) {
+        pendingSpeechLanguage = language;
+        userCancelledSpeech = false;
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            notifyVoiceError("unavailable");
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+            && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            speechStartPending = true;
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_AUDIO_PERMISSION);
+            return;
+        }
+        startAndroidSpeechRecognition();
+    }
+
+    private void startAndroidSpeechRecognition() {
+        try {
+            if (speechRecognizer == null) {
+                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
+                speechRecognizer.setRecognitionListener(new RecognitionListener() {
+                    @Override public void onReadyForSpeech(Bundle params) { notifyVoiceStatus("listening"); }
+                    @Override public void onBeginningOfSpeech() { notifyVoiceStatus("listening"); }
+                    @Override public void onRmsChanged(float rmsdB) {}
+                    @Override public void onBufferReceived(byte[] buffer) {}
+                    @Override public void onEndOfSpeech() { notifyVoiceStatus("processing"); }
+                    @Override public void onError(int error) {
+                        if (userCancelledSpeech) {
+                            userCancelledSpeech = false;
+                            notifyVoiceError("cancelled");
+                        } else if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                            notifyVoiceError("no-speech");
+                        } else if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT) {
+                            notifyVoiceError("network");
+                        } else if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
+                            notifyVoiceError("permission");
+                        } else if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) {
+                            notifyVoiceError("unavailable");
+                        } else {
+                            notifyVoiceError("unavailable");
+                        }
+                    }
+                    @Override public void onResults(Bundle results) {
+                        ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                        if (matches == null || matches.isEmpty() || matches.get(0).trim().isEmpty()) {
+                            notifyVoiceError("no-speech");
+                        } else {
+                            String transcript = JSONObject.quote(matches.get(0));
+                            webView.evaluateJavascript("window.jarvesNativeVoiceResult&&window.jarvesNativeVoiceResult(" + transcript + ")", null);
+                        }
+                    }
+                    @Override public void onPartialResults(Bundle partialResults) { notifyVoiceStatus("listening"); }
+                    @Override public void onEvent(int eventType, Bundle params) {}
+                });
+            }
+            Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, pendingSpeechLanguage);
+            intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+            intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true);
+            speechRecognizer.startListening(intent);
+        } catch (RuntimeException error) {
+            Log.e("JARVES", "Não foi possível iniciar o reconhecimento de voz.", error);
+            notifyVoiceError("unavailable");
+        }
+    }
+
+    private void notifyVoiceStatus(String status) {
+        if (webView != null) {
+            webView.evaluateJavascript("window.jarvesNativeVoiceStatus&&window.jarvesNativeVoiceStatus("
+                + JSONObject.quote(status) + ")", null);
+        }
+    }
+
+    private void notifyVoiceError(String error) {
+        if (webView != null) {
+            webView.evaluateJavascript("window.jarvesNativeVoiceError&&window.jarvesNativeVoiceError("
+                + JSONObject.quote(error) + ")", null);
+        }
+    }
+
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != PICK_FILE_REQUEST || fileChooserCallback == null) return;
@@ -525,6 +641,49 @@ public class MainActivity extends Activity {
     }
 
     public final class NativeSettingsBridge {
+        @JavascriptInterface public boolean startVoiceRecognition(String language) {
+            if (!"pt-BR".equals(language) && !"pt-PT".equals(language)
+                && !"en-US".equals(language) && !"es-ES".equals(language)) return false;
+            mainHandler.post(() -> beginAndroidSpeechRecognition(language));
+            return true;
+        }
+
+        @JavascriptInterface public void stopVoiceRecognition() {
+            mainHandler.post(() -> {
+                userCancelledSpeech = true;
+                if (speechRecognizer != null) speechRecognizer.cancel();
+                speechStartPending = false;
+            });
+        }
+
+        @JavascriptInterface public String getServerUrl() {
+            return getPreferences(MODE_PRIVATE).getString(KEY_URL, "");
+        }
+
+        @JavascriptInterface public String getServerStatus() {
+            return serverConnectionStatus;
+        }
+
+        @JavascriptInterface public boolean connectToServer(String address) {
+            if (address == null || address.length() > 2048) return false;
+            String normalized = address.trim().replaceAll("/+$", "");
+            Uri uri = Uri.parse(normalized);
+            if ((!"http".equals(uri.getScheme()) && !"https".equals(uri.getScheme()))
+                || uri.getHost() == null
+                || uri.getUserInfo() != null
+                || (uri.getPath() != null && !uri.getPath().isEmpty())
+                || uri.getQuery() != null
+                || uri.getFragment() != null) {
+                return false;
+            }
+            mainHandler.post(() -> {
+                pendingServerUrl = normalized;
+                getPreferences(MODE_PRIVATE).edit().putString(KEY_URL, normalized).apply();
+                verifyManualServer(normalized);
+            });
+            return true;
+        }
+
         @JavascriptInterface public String getLauncherIcon() {
             return getPreferences(MODE_PRIVATE).getString(KEY_LAUNCHER_ICON, "default");
         }
