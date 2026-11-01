@@ -111,3 +111,4 @@
 .voice-command-status:empty { display: none; }
 @keyframes voice-pulse { to { box-shadow: 0 0 0 5px color-mix(in srgb,var(--danger) 24%,transparent); } }
 @media(prefers-reduced-motion:reduce) { .composer-actions #btnVoice.listening { animation: none; } }
+.history-tools #btnUnifyChats{width:100%;margin-top:8px;padding:8px 10px;font-size:12px}

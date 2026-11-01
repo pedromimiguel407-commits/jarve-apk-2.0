@@ -31,6 +31,7 @@ function runMigrations(database) {
     { name: '003_settings', sql: MIGRATION_003 },
     { name: '004_files', sql: MIGRATION_004 },
     { name: '005_tasks', sql: MIGRATION_005 },
+    { name: '006_unified_conversations', sql: MIGRATION_006 },
   ];
   for (const m of migrations) {
     if (applied.has(m.name)) continue;
@@ -146,6 +147,14 @@ CREATE TABLE IF NOT EXISTS task_steps (
   finished_at TEXT,
   FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
 );
+`;
+
+const MIGRATION_006 = `
+ALTER TABLE conversations ADD COLUMN is_unified INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE messages ADD COLUMN source_conversation_title TEXT;
+ALTER TABLE messages ADD COLUMN origin_message_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_one_unified_conversation ON conversations(is_unified) WHERE is_unified=1;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unified_origin_message ON messages(conversation_id,origin_message_id) WHERE origin_message_id IS NOT NULL;
 `;
 
 export function closeDb() {

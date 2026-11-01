@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
       item.className = 'conv-item' + (c.id === state.currentConversationId ? ' active' : '');
       const title = document.createElement('div');
       title.className = 'conv-title';
-      title.textContent = c.title || 'Sem titulo';
+      title.textContent = (c.is_unified ? '🗂 ' : '') + (c.title || 'Sem titulo');
       const ren = document.createElement('button');
       ren.className = 'conv-del';
       ren.textContent = '✎';
@@ -222,10 +222,13 @@ document.addEventListener('DOMContentLoaded', () => {
     body.className = 'msg-body';
     body.innerHTML = renderMarkdown(content || '');
     div.appendChild(body);
-    if (meta.model || meta.provider) {
+    if (meta.source_conversation_title || meta.model || meta.provider) {
       const m = document.createElement('div');
       m.className = 'msg-meta';
-      m.textContent = [preferences.aiName, meta.provider, meta.model].filter(Boolean).join(' • ');
+      m.textContent = [
+        meta.source_conversation_title ? 'Histórico: ' + meta.source_conversation_title : null,
+        preferences.aiName, meta.provider, meta.model,
+      ].filter(Boolean).join(' • ');
       div.appendChild(m);
     }
     if (role === 'assistant') {
@@ -563,6 +566,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('convTitle').textContent = 'Nova conversa';
     renderChat();
     closeSidebar();
+  });
+  document.getElementById('btnUnifyChats').addEventListener('click', async (event) => {
+    if (state.generating) { toast('Aguarde a resposta atual terminar antes de unificar.', 'error'); return; }
+    if (!confirm('Criar ou atualizar o Chat unificado com as mensagens de todas as conversas? As conversas originais serão mantidas.')) return;
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const result = await api.unifyConversations();
+      await loadConversations();
+      await selectConversation(result.conversation.id);
+      toast(result.importedCount
+        ? `${result.importedCount} mensagem(ns) reunida(s) de ${result.sourceCount} conversa(s).`
+        : 'O Chat unificado já está atualizado.');
+    } catch (error) { toast(error.message, 'error'); }
+    finally { button.disabled = false; }
   });
   document.getElementById('btnClear').addEventListener('click', () => {
     state.currentConversationId = null;

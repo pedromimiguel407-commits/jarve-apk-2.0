@@ -7,7 +7,7 @@ const root = path.resolve(process.cwd());
 
 test('frontend index exists and has key controls', () => {
   const html = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8');
-  for (const id of ['btnMenu','btnNewChat','btnSend','btnStop','btnClear','modelSelect','btnSaveSettings','btnUpload','btnPlan','btnRunTask']) {
+  for (const id of ['btnMenu','btnNewChat','btnUnifyChats','btnSend','btnStop','btnClear','modelSelect','btnSaveSettings','btnUpload','btnPlan','btnRunTask']) {
     assert.ok(html.includes('id="' + id + '"'), 'missing ' + id);
   }
   const navigation = html.match(/<nav class="tool-nav primary-nav"[\s\S]*?<\/nav>/)?.[0] || '';
@@ -18,6 +18,9 @@ test('frontend index exists and has key controls', () => {
   assert.match(html, /id="view-html-tests"[\s\S]*id="btnRunHtmlTests"/);
   const generator = fs.readFileSync(path.join(root, 'frontend/scripts/gerador.js'), 'utf8');
   assert.match(generator, /value="modelo-3d"/);
+  assert.match(generator, /Automatic1111\/Forge/);
+  assert.match(generator, /generateImage\(\{ prompt, width: 768, height: 768, steps: 20 \}\)/);
+  assert.match(generator, /encoding: 'base64'/);
   assert.match(generator, /provider: 'ollama'/);
   assert.doesNotMatch(generator, /nav\.insertBefore/);
   assert.match(navigation, /href="\/download\.html"/);
@@ -38,6 +41,9 @@ test('frontend index exists and has key controls', () => {
 test('download page only enables APK, EXE, and AppImage downloads from a published GitHub release', () => {
   const html = fs.readFileSync(path.join(root, 'frontend/download.html'), 'utf8');
   assert.match(html, /const repository = 'pedromimiguel407-commits\/jarve-apk-2\.0'/);
+  assert.match(html, /Atualização v2\.3\.6 em preparação/);
+  assert.match(html, /pull\/6/);
+  assert.match(html, /somente a versão mais recente já publicada/);
   assert.match(html, /api\.github\.com\/repos\/\$\{repository\}\/releases\/latest/);
   assert.match(html, /asset\.name === 'app-debug\.apk'/);
   assert.match(html, /exeDownload/);

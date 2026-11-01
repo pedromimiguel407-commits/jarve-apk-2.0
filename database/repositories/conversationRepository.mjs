@@ -66,6 +66,59 @@ export function listMessages(conversationId) {
   return db.prepare('SELECT * FROM messages WHERE conversation_id=? ORDER BY created_at ASC, rowid ASC').all(conversationId);
 }
 
+export function unifyConversations() {
+  const db = getDb();
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    let unified = db.prepare('SELECT * FROM conversations WHERE is_unified=1').get();
+    const messages = db.prepare(`
+      SELECT m.*, c.title AS source_conversation_title
+      FROM messages m JOIN conversations c ON c.id=m.conversation_id
+      WHERE c.is_unified=0
+      ORDER BY m.created_at ASC, m.rowid ASC
+    `).all();
+    if (!unified && !messages.length) {
+      db.exec('ROLLBACK');
+      return null;
+    }
+
+    if (!unified) {
+      const id = newId();
+      const now = nowIso();
+      db.prepare(`INSERT INTO conversations (id,title,created_at,updated_at,is_unified) VALUES (?,?,?,?,1)`)
+        .run(id, 'Chat unificado', now, now);
+      unified = db.prepare('SELECT * FROM conversations WHERE id=?').get(id);
+    }
+
+    const insert = db.prepare(`
+      INSERT OR IGNORE INTO messages
+        (id,conversation_id,role,content,created_at,model,provider,error,source_conversation_title,origin_message_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?)
+    `);
+    let importedCount = 0;
+    const sourceIds = new Set();
+    for (const message of messages) {
+      const result = insert.run(
+        newId(), unified.id, message.role, message.content, message.created_at,
+        message.model, message.provider, message.error, message.source_conversation_title, message.id,
+      );
+      importedCount += result.changes;
+      if (result.changes) sourceIds.add(message.conversation_id);
+    }
+    if (importedCount) db.prepare('UPDATE conversations SET updated_at=? WHERE id=?').run(nowIso(), unified.id);
+    db.prepare('UPDATE conversations SET archived=0 WHERE id=?').run(unified.id);
+    db.exec('COMMIT');
+    return {
+      conversation: db.prepare('SELECT * FROM conversations WHERE id=?').get(unified.id),
+      importedCount,
+      sourceCount: sourceIds.size,
+    };
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+}
+
 export function deleteMessages(conversationId) {
   const db = getDb();
   db.prepare('DELETE FROM messages WHERE conversation_id=?').run(conversationId);
