@@ -7,7 +7,7 @@ const root = path.resolve(process.cwd());
 
 test('frontend index exists and has key controls', () => {
   const html = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8');
-  for (const id of ['btnMenu','btnNewChat','btnUnifyChats','btnSend','btnStop','btnClear','modelSelect','btnSaveSettings','btnUpload','btnPlan','btnRunTask']) {
+  for (const id of ['btnMenu','btnNewChat','btnUnifyChats','btnSend','btnStop','btnClear','modelSelect','btnSaveSettings','btnUpload','btnDownloadNetworkFile','networkFileUrl','btnPlan','btnRunTask']) {
     assert.ok(html.includes('id="' + id + '"'), 'missing ' + id);
   }
   const navigation = html.match(/<nav class="tool-nav primary-nav"[\s\S]*?<\/nav>/)?.[0] || '';
@@ -28,6 +28,7 @@ test('frontend index exists and has key controls', () => {
     assert.ok(html.includes(`id="${id}"`), 'missing preference/diagnostic control ' + id);
   }
   const appScript = fs.readFileSync(path.join(root, 'frontend/scripts/app.js'), 'utf8');
+  assert.match(appScript, /api\.downloadFile\(url\)/);
   assert.match(html, /Hospedar o backend e executar a IA dentro do próprio Android ainda não é suportado/);
   for (const command of ['enviar','limpar texto','novo chat','parar resposta']) assert.ok(html.includes(command), `missing voice command hint: ${command}`);
   assert.match(appScript, /connectToServer\(address\)/);
@@ -41,8 +42,8 @@ test('frontend index exists and has key controls', () => {
 test('download page only enables APK, EXE, and AppImage downloads from a published GitHub release', () => {
   const html = fs.readFileSync(path.join(root, 'frontend/download.html'), 'utf8');
   assert.match(html, /const repository = 'pedromimiguel407-commits\/jarve-apk-2\.0'/);
-  assert.match(html, /Novidades da versão v2\.3\.6/);
-  assert.match(html, /releases\/tag\/v2\.3\.6/);
+  assert.match(html, /Novidades da versão v2\.3\.7/);
+  assert.match(html, /Este APK de depuração[\s\S]*cliente WebView[\s\S]*não hospeda o backend/);
   assert.match(html, /somente arquivos reais da versão mais recente publicada/);
   assert.match(html, /api\.github\.com\/repos\/\$\{repository\}\/releases\/latest/);
   assert.match(html, /asset\.name === 'app-debug\.apk'/);
@@ -86,9 +87,9 @@ test('Android launcher icons target the declared activity and expose only packag
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const androidBuild = fs.readFileSync(path.join(root, 'android/app/build.gradle'), 'utf8');
   const environment = fs.readFileSync(path.join(root, 'backend/config/env.mjs'), 'utf8');
-  assert.equal(packageJson.version, '2.3.6');
-  assert.match(androidBuild, /versionCode 236[\s\S]*versionName '2\.3\.6'/);
-  assert.match(environment, /APP_VERSION = '2\.3\.6'/);
+  assert.equal(packageJson.version, '2.3.7');
+  assert.match(androidBuild, /versionCode 237[\s\S]*versionName '2\.3\.7'/);
+  assert.match(environment, /APP_VERSION = '2\.3\.7'/);
   const manifest = fs.readFileSync(path.join(root, 'android/app/src/main/AndroidManifest.xml'), 'utf8');
   for (const permission of ['INTERNET', 'ACCESS_NETWORK_STATE', 'ACCESS_WIFI_STATE', 'CHANGE_NETWORK_STATE', 'CHANGE_WIFI_MULTICAST_STATE', 'RECORD_AUDIO']) {
     assert.match(manifest, new RegExp(`android:name="android\\.permission\\.${permission}"`));

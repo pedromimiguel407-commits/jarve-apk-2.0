@@ -1,5 +1,6 @@
 import express from 'express';
 import * as FS from '../services/fileService.mjs';
+import { openPublicFile } from '../services/networkDownloadService.mjs';
 import { env } from '../config/env.mjs';
 
 const router = express.Router();
@@ -23,10 +24,47 @@ router.post('/upload', (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
+router.post('/download', async (req, res) => {
+  const { url } = req.body || {};
+  if (typeof url !== 'string' || !url.trim()) return res.status(400).json({ error: 'Informe a URL do arquivo.' });
+  let file;
+  try {
+    file = await openPublicFile(url.trim());
+    if (file.contentLength && file.contentLength > env.MAX_UPLOAD_BYTES) {
+      file.stream.destroy();
+      return res.status(413).json({ error: `Arquivo excede limite de ${env.MAX_UPLOAD_BYTES} bytes` });
+    }
+    const saved = await FS.saveUploadedFileStream({ originalName: file.name, stream: file.stream, mime: file.mime });
+    res.status(201).json(saved);
+  } catch (error) {
+    file?.stream.destroy();
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error('[FILES] Falha ao baixar/salvar arquivo:', error.code || error.name || 'erro desconhecido');
+    res.status(500).json({ error: 'Não foi possível baixar e salvar o arquivo.' });
+  }
+});
+
 router.get('/:id', (req, res) => {
   const r = FS.getFile(req.params.id);
   if (!r) return res.status(404).json({ error: 'Arquivo nao encontrado' });
   res.json(r);
+});
+
+router.get('/:id/download', (req, res) => {
+  try {
+    const { record, size, stream } = FS.createFileReadStream(req.params.id);
+    const fallbackName = record.name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+    res.setHeader('Content-Type', record.mime || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${fallbackName}"; filename*=UTF-8''${encodeURIComponent(record.name)}`);
+    res.setHeader('Content-Length', size);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    stream.on('error', error => {
+      console.error('[FILES] Falha ao transmitir arquivo:', error.code || error.name || 'erro desconhecido');
+      if (!res.headersSent) res.status(500).end();
+      else res.destroy(error);
+    });
+    stream.pipe(res);
+  } catch (error) { res.status(404).json({ error: error.message || 'Arquivo não encontrado.' }); }
 });
 
 router.get('/:id/content', (req, res) => {
