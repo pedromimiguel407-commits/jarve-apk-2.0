@@ -1,0 +1,91 @@
+{
+  "name": "jarves-ai",
+  "version": "2.3.1",
+  "description": "JARVES AI multiplataforma com HTML Mega Test Suite e diagnóstico aprimorado",
+  "type": "module",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "node backend/server.mjs",
+    "dev": "node --watch backend/server.mjs",
+    "test": "node --test",
+    "test:unit": "node --test \"tests/unit/**/*.test.mjs\"",
+    "test:integration": "node --test \"tests/integration/**/*.test.mjs\"",
+    "lint": "node scripts/check.mjs",
+    "dist:win": "electron-builder --win nsis --x64 --publish never",
+    "dist:linux": "electron-builder --linux AppImage deb --x64 --publish never",
+    "build:executor": "node scripts/build-executor.mjs"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^5.0.0"
+  },
+  "devDependencies": {
+    "electron": "^37.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.jarves.ai",
+    "productName": "JARVES AI",
+    "asar": false,
+    "files": [
+      "desktop/**/*",
+      "backend/**/*",
+      "ai/**/*",
+      "executor/**/*",
+      "database/**/*",
+      "frontend/**/*",
+      "node_modules/**/*",
+      "package.json",
+      ".env.example",
+      "!**/*.bak.*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "frontend/assets/icon-512.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "JARVES-AI-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "frontend/assets/icon-512.png",
+      "maintainer": "JARVES AI <jarves-ai@example.com>"
+    },
+    "artifactName": "JARVES-AI-${version}-${os}-${arch}.${ext}",
+    "portable": {
+      "artifactName": "JARVES-AI-${version}-portatil.${ext}"
+    }
+  },
+  "productName": "JARVES AI",
+  "author": {
+    "name": "JARVES AI",
+    "email": "jarves-ai@example.com"
+  },
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/SEU_USUARIO/jarves-ai"
+}
