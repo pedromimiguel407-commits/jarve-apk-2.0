@@ -50,6 +50,14 @@
 
 .suggestions[hidden]{display:none!important}
 
+/* Local/free AI onboarding and current provider status */
+.local-ai-card{margin:0 0 16px;padding:12px;background:color-mix(in srgb,var(--accent2) 8%,var(--panel));border:1px solid color-mix(in srgb,var(--accent2) 30%,var(--line));border-radius:12px}
+.local-ai-badge{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--accent2)}
+.local-ai-card p{margin:7px 0;font-size:11px;line-height:1.55;color:var(--muted)}
+.local-ai-card .nav-btn{width:100%;padding:7px 0;color:var(--text)}
+.sidebar-bottom #aiRuntimeStatus{line-height:1.4}
+.model-cost-note a{font-size:12px;color:var(--accent2)}
+.model-cost-note code{font-size:11px}
 
 /* HTML Mega Test Suite */
 .html-test-panel { margin-top: 18px; }

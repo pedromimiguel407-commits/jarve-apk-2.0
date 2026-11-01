@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d1a">
+  <title>Downloads · JARVES AI</title>
+  <style>
+    :root{color-scheme:dark;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#080d1a;color:#eaf0ff}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 0,#26346a 0,transparent 58%),#080d1a}
+    main{width:min(100%,680px);padding:clamp(22px,6vw,48px);background:#10182a;border:1px solid #293754;border-radius:22px;box-shadow:0 24px 80px #0007}
+    .eyebrow{color:#36d6c2;font-size:11px;font-weight:700;letter-spacing:2px}
+    h1{font-size:clamp(30px,7vw,46px);margin:10px 0}
+    p{color:#aab7ce;line-height:1.65}
+    .download-card{margin:26px 0;padding:20px;background:#151f34;border:1px solid #344360;border-radius:15px}
+    .download-card h2{font-size:20px;margin:0 0 8px}
+    .button{display:inline-flex;align-items:center;justify-content:center;min-height:46px;margin-top:8px;padding:0 18px;border:0;border-radius:10px;background:#7787ff;color:white;font-weight:700;text-decoration:none}
+    .button[hidden]{display:none}
+    .status{font-size:13px;color:#b8c5dd}
+    .status[data-state="error"]{color:#ffb4bc}
+    .secondary{color:#8e9cff;font-size:13px}
+    footer{margin-top:26px;padding-top:16px;border-top:1px solid #293754;font-size:12px;color:#91a0bb}
+    footer a{color:#8e9cff}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">JARVES AI · DOWNLOADS</p>
+    <h1>Baixe o JARVES</h1>
+    <p>O APK abaixo só fica disponível quando uma versão real é compilada e publicada em um release. Esta página não contém um APK fictício.</p>
+
+    <section class="download-card" aria-labelledby="android-title">
+      <h2 id="android-title">Android APK</h2>
+      <p id="releaseDetails" class="status" role="status" aria-live="polite">Consultando releases publicados…</p>
+      <a id="apkDownload" class="button" hidden>Baixar APK</a>
+      <p><a id="allReleases" class="secondary" href="https://github.com/pedromimiguel407-commits/jarve-apk-2.0/releases" target="_blank" rel="noopener noreferrer">Ver releases no GitHub ↗</a></p>
+    </section>
+
+    <section class="download-card" aria-labelledby="desktop-title">
+      <h2 id="desktop-title">Windows EXE</h2>
+      <p class="status">Não há um EXE de desktop gerado ou publicado neste projeto. Não existe link de download até que o empacotamento Windows seja configurado e um binário real seja publicado.</p>
+    </section>
+
+    <footer>
+      <a href="/">Voltar ao JARVES AI</a> · APK cliente: requer o servidor JARVES acessível na rede.
+    </footer>
+  </main>
+  <script>
+    const repository = 'pedromimiguel407-commits/jarve-apk-2.0';
+    const status = document.getElementById('releaseDetails');
+    const download = document.getElementById('apkDownload');
+    const releasesLink = document.getElementById('allReleases');
+    releasesLink.href = `https://github.com/${repository}/releases`;
+    fetch(`https://api.github.com/repos/${repository}/releases/latest`, {
+      headers: { Accept: 'application/vnd.github+json' },
+      cache: 'no-store',
+    }).then(async response => {
+      if (!response.ok) throw new Error(response.status === 404 ? 'Nenhum release publicado com APK ainda.' : `GitHub respondeu HTTP ${response.status}.`);
+      return response.json();
+    }).then(release => {
+      const apk = (release.assets || []).find(asset => asset.name === 'app-debug.apk' && typeof asset.browser_download_url === 'string');
+      if (!apk) throw new Error('O release mais recente ainda não contém um APK.');
+      const url = new URL(apk.browser_download_url);
+      if (url.protocol !== 'https:' || url.hostname !== 'github.com') throw new Error('O endereço do APK publicado não é válido.');
+      download.href = url.href;
+      download.download = apk.name;
+      download.hidden = false;
+      status.textContent = `Versão ${release.tag_name} · publicada em ${new Date(release.published_at).toLocaleDateString('pt-BR')}`;
+    }).catch(error => {
+      status.dataset.state = 'error';
+      status.textContent = `${error.message} Execute o workflow de APK e publique uma tag v* para disponibilizar o download.`;
+    });
+  </script>
+</body>
+</html>

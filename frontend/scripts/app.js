@@ -4,8 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Sidebar toggle
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('overlay');
-  function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('show'); }
-  function closeSidebar() { sidebar.classList.remove('open'); overlay.classList.remove('show'); }
+  function openSidebar() { sidebar.classList.add('open'); overlay.classList.add('show'); document.getElementById('btnMenu').setAttribute('aria-expanded', 'true'); }
+  function closeSidebar() { sidebar.classList.remove('open'); overlay.classList.remove('show'); document.getElementById('btnMenu').setAttribute('aria-expanded', 'false'); }
   document.getElementById('btnMenu').addEventListener('click', openSidebar);
   document.getElementById('btnCloseSidebar').addEventListener('click', closeSidebar);
   overlay.addEventListener('click', closeSidebar);
@@ -14,6 +14,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function setView(v) {
     state.view = v;
     document.querySelectorAll('.view').forEach(el => { el.hidden = (el.id !== 'view-' + v); });
+    document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
+      const active = btn.dataset.view === v;
+      btn.classList.toggle('active', active);
+      if (active) btn.setAttribute('aria-current', 'page');
+      else btn.removeAttribute('aria-current');
+    });
     if (v === 'agents') loadAgents();
     if (v === 'files') loadFiles();
     if (v === 'memory') loadMemory();
@@ -22,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (v === 'diagnostics') loadDiagnostics();
     if (v === 'reports') loadReports();
   }
-  document.querySelectorAll('.nav-btn').forEach(btn => {
+  document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
     btn.addEventListener('click', () => { setView(btn.dataset.view); closeSidebar(); });
   });
   // default chat view
@@ -313,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
     state.currentConversationId = null;
     state.messages = [];
     document.getElementById('convTitle').textContent = 'Nova conversa';
-    document.getElementById('chatArea').innerHTML = '';
+    renderChat();
     closeSidebar();
   });
   document.getElementById('btnClear').addEventListener('click', () => {
@@ -345,6 +351,20 @@ document.addEventListener('DOMContentLoaded', () => {
       // trocar o provedor em Configuracoes, o chat continuava usando provedor/modelo antigos.
       state.selectedProvider = r.provider;
       state.models = r.models || [];
+      const localAvailable = state.models.some(m => m.provider === 'ollama');
+      const runtimeText = r.error
+        ? `IA indisponível · ${r.provider}`
+        : r.provider === 'openai-compatible'
+          ? 'Provedor remoto · confirme possíveis cobranças'
+          : r.provider === 'ollama'
+            ? 'Ollama local · sem cobrança por uso'
+            : r.provider === 'base'
+              ? 'Modo básico offline · grátis e limitado'
+              : localAvailable
+                ? 'Automático · Ollama local disponível'
+                : 'Automático · fallback offline básico';
+      document.getElementById('aiRuntimeStatus').textContent = runtimeText;
+      document.getElementById('providerSubtitle').textContent = runtimeText;
       const sel = document.getElementById('modelSelect');
       sel.innerHTML = '';
       for (const m of state.models) {
@@ -360,7 +380,11 @@ document.addEventListener('DOMContentLoaded', () => {
       else state.selectedModel = ids[0] || r.selected || null;
       if (state.selectedModel) sel.value = state.selectedModel;
       if (!state.models.length) { const o = document.createElement('option'); o.value = ''; o.textContent = r.error ? 'sem modelos (veja o aviso)' : 'nenhum modelo instalado'; sel.appendChild(o); }
-    } catch (e) { toast('Nao foi possivel listar modelos: ' + e.message, 'error'); }
+    } catch (e) {
+      document.getElementById('aiRuntimeStatus').textContent = 'IA indisponível · verifique conexão';
+      document.getElementById('providerSubtitle').textContent = 'Não foi possível consultar os modelos';
+      toast('Nao foi possivel listar modelos: ' + e.message, 'error');
+    }
   }
   document.getElementById('modelSelect').addEventListener('change', (e) => {
     state.selectedModel = e.target.value;
@@ -582,7 +606,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let input;
         if (f.type === 'select') {
           input = document.createElement('select');
-          for (const o of f.options) { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; input.appendChild(opt); }
+          const providerLabels = { auto: 'Automático (local grátis/offline)', ollama: 'Ollama local (grátis)', 'openai-compatible': 'API remota (pode cobrar)', base: 'Básico offline', mock: 'Simulação de teste' };
+          for (const o of f.options) { const opt = document.createElement('option'); opt.value = o; opt.textContent = f.key === 'ai_provider' ? providerLabels[o] : o; input.appendChild(opt); }
         } else {
           input = document.createElement('input'); input.type = f.type;
           if (f.placeholder) input.placeholder = f.placeholder;
@@ -643,8 +668,22 @@ document.addEventListener('DOMContentLoaded', () => {
         info.append(name, meta);
         const use = document.createElement('button'); use.className = 'secondary-btn'; use.type = 'button'; use.textContent = 'Usar modelo';
         use.addEventListener('click', async () => {
-          const key = r.provider === 'ollama' ? 'ollama_model' : 'openai_model';
-          try { await api.setSetting(key, model.id); state.selectedModel = model.id; loadModels(); const field = document.querySelector(`#settingsForm [data-key="${key}"]`); if (field) field.value = model.id; toast(`Modelo ${model.id} selecionado.`); }
+          const selectedProvider = r.provider === 'auto' ? model.provider : r.provider;
+          const key = selectedProvider === 'ollama' ? 'ollama_model' : 'openai_model';
+          try {
+            if (r.provider === 'auto' && ['ollama', 'base'].includes(selectedProvider)) {
+              await api.setSetting('ai_provider', selectedProvider);
+              const providerField = document.querySelector('#settingsForm [data-key="ai_provider"]');
+              if (providerField) providerField.value = selectedProvider;
+              state.selectedProvider = selectedProvider;
+            }
+            if (selectedProvider !== 'base') await api.setSetting(key, model.id);
+            state.selectedModel = model.id;
+            await loadModels();
+            const field = document.querySelector(`#settingsForm [data-key="${key}"]`);
+            if (field && selectedProvider !== 'base') field.value = model.id;
+            toast(`Modelo ${model.id} selecionado.`);
+          }
           catch (e) { toast(e.message, 'error'); }
         });
         item.append(info, use); list.appendChild(item);
@@ -698,7 +737,10 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const r = await api.lastDiagnostics();
       renderDiagnostics(r);
-    } catch (e) { /* none yet */ }
+    } catch (e) {
+      if (/HTTP 404/.test(e.message)) document.getElementById('diagSummary').textContent = 'Nenhum diagnóstico executado ainda.';
+      else document.getElementById('diagSummary').textContent = 'Não foi possível carregar o último diagnóstico: ' + e.message;
+    }
   }
   function renderDiagnostics(r) {
     if (!r) return;
@@ -730,14 +772,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const status = document.getElementById('diagSummary');
     status.textContent = 'Testando velocidade...';
     const times = [];
+    let failures = 0;
     for (let i = 0; i < 5; i++) {
       const t0 = performance.now();
-      try { await fetch('/api/health', { cache: 'no-store' }); } catch {}
+      try {
+        const response = await fetch('/api/health', { cache: 'no-store' });
+        if (!response.ok) failures++;
+      } catch { failures++; }
       times.push(performance.now() - t0);
     }
     const avg = (times.reduce((a,b)=>a+b,0)/times.length).toFixed(1);
     const min = Math.min(...times).toFixed(1);
-    status.textContent = `Latencia media: ${avg} ms (min ${min} ms) - ${times.map(t=>t.toFixed(0)).join(', ')} ms`;
+    status.textContent = failures ? `${failures}/5 verificações falharam; latência indisponível. Tempos observados: ${times.map(t=>t.toFixed(0)).join(', ')} ms` : `Latência média: ${avg} ms (mín. ${min} ms) - ${times.map(t=>t.toFixed(0)).join(', ')} ms`;
     btn.disabled = false;
   });
   document.getElementById('btnDiag').addEventListener('click', async () => {
@@ -750,9 +796,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadReports() {
     try {
-      const r = await api.lastDiagnostics().catch(() => null); // 404 = ainda nao ha diagnostico (nao e erro)
+      let r;
+      try { r = await api.lastDiagnostics(); }
+      catch (e) {
+        if (!/HTTP 404/.test(e.message)) throw e;
+        const el = document.getElementById('resolvedBugs');
+        el.innerHTML = '<div class="status">Nenhum diagnóstico executado ainda. Rode um em Diagnóstico.</div>';
+        document.getElementById('reportRaw').textContent = '';
+        return;
+      }
       const el = document.getElementById('resolvedBugs');
-      if (!r) { el.innerHTML = '<div class="status">Nenhum diagnostico executado ainda. Rode um em Diagnostico.</div>'; document.getElementById('reportRaw').textContent = ''; return; }
       el.innerHTML = '';
       for (const b of (r.resolvedBugs || [])) {
         const item = document.createElement('div');
