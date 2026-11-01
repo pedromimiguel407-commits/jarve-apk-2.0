@@ -13,6 +13,7 @@ before(async () => {
     req.on('data', d => body += d);
     req.on('end', () => {
       if (req.url === '/api/tags') { res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ models: [{ name: 'm1', size: 5 }] })); }
+      if (req.url === '/v1/models') { res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ data: [{ id: 'gpt-6.1-sol' }] })); }
       if (req.url === '/api/chat') {
         const stream = JSON.parse(body).stream;
         if (mode === 'hang') return; // nunca responde: testa timeout
@@ -78,4 +79,20 @@ test('OpenAI-compatible: streaming SSE real (varios deltas, [DONE])', async () =
   assert.equal(chunks.filter(c => c.delta).length, 2);
   assert.equal(chunks.map(c => c.delta).join(''), 'Ola mundo');
   assert.equal(chunks.at(-1).done, true);
+});
+
+test('OpenAI-compatible: envia a chave como Bearer sem expô-la em outros campos', () => {
+  const withKey = new OpenAICompatibleProvider({ apiKey: 'test-secret' });
+  const withoutKey = new OpenAICompatibleProvider();
+  assert.equal(withKey._headers().Authorization, 'Bearer test-secret');
+  assert.equal(Object.hasOwn(withoutKey._headers(), 'Authorization'), false);
+});
+
+test('OpenAI-compatible: lista GPT-6.1 Sol quando o endpoint o oferece e usa os parâmetros atuais', async () => {
+  const p = new OpenAICompatibleProvider({ baseUrl: base + '/v1', apiKey: 'k' });
+  assert.deepEqual((await p.listModels()).map(model => model.id), ['gpt-6.1-sol']);
+  const body = JSON.parse(p._body('gpt-6.1-sol', [{ role: 'user', content: 'oi' }], {}, true));
+  assert.equal(body.max_completion_tokens, 512);
+  assert.equal(body.reasoning_effort, 'medium');
+  assert.equal(Object.hasOwn(body, 'temperature'), false);
 });

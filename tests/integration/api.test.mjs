@@ -115,6 +115,37 @@ test('task creation and run (mock)', async () => {
   assert.ok(['done','partial'].includes(rj.status));
 });
 
+test('reviewed task plan is preserved and remains pending until explicitly run', async () => {
+  const plan = [
+    { title: 'Pesquisar requisitos', agent: 'researcher', dependsOn: [] },
+    { title: 'Gerar exemplo HTML', agent: 'programmer', dependsOn: [0] },
+  ];
+  const response = await fetch(baseUrl + '/api/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-admin-token': process.env.ADMIN_TOKEN || '' },
+    body: JSON.stringify({ goal: 'Criar um exemplo', plan, autoRun: false }),
+  });
+  assert.equal(response.status, 201);
+  const task = await response.json();
+  assert.equal(task.status, 'pending');
+  assert.deepEqual(task.plan, plan);
+  assert.deepEqual(task.steps.map(step => step.title), plan.map(step => step.title));
+});
+
+test('reviewed task plan rejects unknown agents and invalid dependencies', async () => {
+  for (const plan of [
+    [{ title: 'Executar', agent: 'shell', dependsOn: [] }],
+    [{ title: 'Etapa', agent: 'general', dependsOn: [0] }],
+  ]) {
+    const response = await fetch(baseUrl + '/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': process.env.ADMIN_TOKEN || '' },
+      body: JSON.stringify({ goal: 'Plano inválido', plan, autoRun: false }),
+    });
+    assert.equal(response.status, 400);
+  }
+});
+
 test('research endpoint handles failure gracefully', async () => {
   // network may be blocked; just ensure no crash
   const r = await fetch(baseUrl + '/api/research', {

@@ -25,11 +25,19 @@ export class OpenAICompatibleProvider {
   }
 
   _body(model, messages, options, stream) {
-    return JSON.stringify({
+    const body = {
       model, stream,
       messages: messages.map(x => ({ role: x.role, content: x.content })),
-      temperature: options.temperature ?? 0.6, max_tokens: options.maxTokens ?? 512, top_p: options.topP ?? 0.85,
-    });
+    };
+    if (model === 'gpt-6.1-sol') {
+      body.max_completion_tokens = options.maxTokens ?? 512;
+      body.reasoning_effort = 'medium';
+    } else {
+      body.temperature = options.temperature ?? 0.6;
+      body.max_tokens = options.maxTokens ?? 512;
+      body.top_p = options.topP ?? 0.85;
+    }
+    return JSON.stringify(body);
   }
   _model(model) {
     if (!this.baseUrl) throw new Error('Endpoint do provedor externo nao configurado (Configuracoes > Conexao)');
