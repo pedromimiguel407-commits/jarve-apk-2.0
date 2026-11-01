@@ -29,12 +29,13 @@
   <main>
     <p class="eyebrow">JARVES AI · DOWNLOADS</p>
     <h1>Baixe o JARVES</h1>
-    <p>Os instaladores só ficam disponíveis aqui quando os arquivos reais são publicados em um Release do GitHub. Artefatos de Actions não aparecem nesta página até serem publicados.</p>
+    <p>Baixe os instaladores publicados no GitHub. Os botões aparecem somente quando há arquivos reais disponíveis para a versão.</p>
 
     <section class="download-card" aria-labelledby="android-title">
-      <h2 id="android-title">Android APK</h2>
+      <h2 id="android-title">Android · APK de teste</h2>
       <p id="releaseDetails" class="status" role="status" aria-live="polite">Consultando releases publicados…</p>
       <a id="apkDownload" class="button" hidden>Baixar APK</a>
+      <p class="status">Este APK de depuração pode exibir avisos de instalação. O app precisa de um servidor JARVES acessível na rede.</p>
       <p><a id="allReleases" class="secondary" href="https://github.com/pedromimiguel407-commits/jarve-apk-2.0/releases" target="_blank" rel="noopener noreferrer">Ver releases no GitHub ↗</a></p>
     </section>
 
@@ -42,10 +43,11 @@
       <h2 id="desktop-title">Windows EXE</h2>
       <p id="exeReleaseDetails" class="status" role="status" aria-live="polite">Consultando releases publicados…</p>
       <a id="exeDownload" class="button" hidden>Baixar instalador Windows</a>
+      <p class="status">O instalador não tem assinatura de código; o Windows pode mostrar um aviso do SmartScreen.</p>
     </section>
 
     <footer>
-      <a href="/">Voltar ao JARVES AI</a> · APK cliente: requer o servidor JARVES acessível na rede.
+      <a href="https://github.com/pedromimiguel407-commits/jarve-apk-2.0" target="_blank" rel="noopener noreferrer">Código-fonte e instruções ↗</a>
     </footer>
   </main>
   <script>
@@ -83,12 +85,12 @@
         : `${versionLabel} · este release ainda não tem APK.`;
       exeStatus.textContent = showDownload(exe, exeDownload)
         ? `${versionLabel} · instalador disponível.`
-        : `${versionLabel} · este release ainda não tem instalador Windows. O EXE é gerado como artefato do Actions.`;
+        : `${versionLabel} · este release ainda não tem instalador Windows.`;
     }).catch(error => {
       status.dataset.state = 'error';
       status.textContent = `${error.message} Execute o workflow de APK e publique uma tag v* para disponibilizar o download.`;
       exeStatus.dataset.state = 'error';
-      exeStatus.textContent = 'Nenhum EXE publicado em um Release. Consulte os artefatos do workflow Windows no GitHub Actions.';
+      exeStatus.textContent = 'Nenhum instalador publicado em um Release.';
     });
   </script>
 </body>

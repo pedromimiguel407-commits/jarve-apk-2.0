@@ -28,6 +28,14 @@ test('download page only enables APK and EXE downloads from a published GitHub r
   assert.match(html, /link\.hidden = false/);
 });
 
+test('GitHub Pages workflow publishes the downloads page as the site root', () => {
+  const workflow = fs.readFileSync(path.join(root, '.github/workflows/pages.yml'), 'utf8');
+  assert.match(workflow, /branches: \[main\]/);
+  assert.match(workflow, /cp frontend\/download\.html public\/index\.html/);
+  assert.match(workflow, /actions\/upload-pages-artifact@v3/);
+  assert.match(workflow, /actions\/deploy-pages@v4/);
+});
+
 test('HTML diagnostics run on demand and offer reviewed repair prompts', () => {
   const tests = fs.readFileSync(path.join(root, 'frontend/scripts/html-tests.js'), 'utf8');
   const app = fs.readFileSync(path.join(root, 'frontend/scripts/app.js'), 'utf8');
