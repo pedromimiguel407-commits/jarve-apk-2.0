@@ -4,7 +4,7 @@
  * Mantem os mesmos formatos de resposta do backend Node (CORE/backend). */
 (() => {
   'use strict';
-  const VERSION = '2.3.0';
+  const VERSION = '2.3.2';
   const DEFAULTS = { ai_provider: 'auto', ollama_base_url: 'http://127.0.0.1:11434', ollama_model: 'qwen3.5:4b' };
   const ALLOWED = new Set(['ai_provider', 'ollama_base_url', 'ollama_model', 'openai_base_url', 'openai_api_key', 'openai_model',
     'ai_timeout_ms', 'theme', 'language', 'memory_enabled', 'max_upload_bytes', 'research_enabled', 'ai_quality']);
