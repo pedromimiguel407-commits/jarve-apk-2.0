@@ -41,9 +41,9 @@ test('frontend index exists and has key controls', () => {
 test('download page only enables APK, EXE, and AppImage downloads from a published GitHub release', () => {
   const html = fs.readFileSync(path.join(root, 'frontend/download.html'), 'utf8');
   assert.match(html, /const repository = 'pedromimiguel407-commits\/jarve-apk-2\.0'/);
-  assert.match(html, /Atualização v2\.3\.6 em preparação/);
-  assert.match(html, /pull\/6/);
-  assert.match(html, /somente a versão mais recente já publicada/);
+  assert.match(html, /Novidades da versão v2\.3\.6/);
+  assert.match(html, /releases\/tag\/v2\.3\.6/);
+  assert.match(html, /somente arquivos reais da versão mais recente publicada/);
   assert.match(html, /api\.github\.com\/repos\/\$\{repository\}\/releases\/latest/);
   assert.match(html, /asset\.name === 'app-debug\.apk'/);
   assert.match(html, /exeDownload/);
