@@ -10,6 +10,12 @@ test('frontend index exists and has key controls', () => {
   for (const id of ['btnMenu','btnNewChat','btnSend','btnStop','btnClear','modelSelect','btnSaveSettings','btnUpload','btnPlan','btnRunTask']) {
     assert.ok(html.includes('id="' + id + '"'), 'missing ' + id);
   }
+  const navigation = html.match(/<nav class="tool-nav primary-nav"[\s\S]*?<\/nav>/)?.[0] || '';
+  assert.deepEqual([...navigation.matchAll(/data-view="([^"]+)"/g)].map(match => match[1]), ['chat', 'settings']);
+  assert.match(navigation, /href="\/download\.html"/);
+  for (const id of ['aiDisplayName','accentColor','rgbMode','speechLanguage','speechVoice','speechRate','speechPitch','btnTestVoice','btnRunHtmlTests','btnRunDiag','repairInput','repairFile','btnAskFix']) {
+    assert.ok(html.includes(`id="${id}"`), 'missing preference/diagnostic control ' + id);
+  }
 });
 
 test('download page only enables APK download from a published GitHub release', () => {
@@ -19,6 +25,17 @@ test('download page only enables APK download from a published GitHub release', 
   assert.match(html, /asset\.name === 'app-debug\.apk'/);
   assert.match(html, /Não há um EXE de desktop gerado ou publicado/);
   assert.match(html, /download\.hidden = false/);
+});
+
+test('HTML diagnostics run on demand and offer reviewed repair prompts', () => {
+  const tests = fs.readFileSync(path.join(root, 'frontend/scripts/html-tests.js'), 'utf8');
+  const app = fs.readFileSync(path.join(root, 'frontend/scripts/app.js'), 'utf8');
+  assert.match(tests, /window\.jarvesHtmlTestReport = report/);
+  assert.doesNotMatch(tests, /if \(document\.getElementById\('htmlTestResults'\)\) run\(\)/);
+  assert.match(app, /failedTests = report\?\.checks\?\.filter/);
+  assert.match(app, /input\.focus\(\)/);
+  assert.match(app, /repairFile\.files\?\.\[0\]/);
+  assert.match(app, /512 \* 1024/);
 });
 
 test('docs exist', () => {

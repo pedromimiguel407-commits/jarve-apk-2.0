@@ -1,4 +1,42 @@
 document.addEventListener('DOMContentLoaded', () => {
+  const PREFERENCES_KEY = 'jarves_preferences';
+  const preferences = (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(PREFERENCES_KEY) || '{}');
+      return {
+        aiName: typeof saved.aiName === 'string' && saved.aiName.trim() ? saved.aiName.trim().slice(0, 32) : 'JARVES AI',
+        accent: /^#[\da-f]{6}$/i.test(saved.accent || '') ? saved.accent : '#7c8cff',
+        rgb: saved.rgb === true,
+        speechLanguage: ['pt-BR', 'pt-PT', 'en-US', 'es-ES'].includes(saved.speechLanguage) ? saved.speechLanguage : 'pt-BR',
+        speechVoice: typeof saved.speechVoice === 'string' ? saved.speechVoice : '',
+        speechRate: Number.isFinite(saved.speechRate) ? Math.min(1.3, Math.max(0.7, saved.speechRate)) : 1,
+        speechPitch: Number.isFinite(saved.speechPitch) ? Math.min(1.3, Math.max(0.7, saved.speechPitch)) : 1,
+      };
+    } catch {
+      return { aiName: 'JARVES AI', accent: '#7c8cff', rgb: false, speechLanguage: 'pt-BR', speechVoice: '', speechRate: 1, speechPitch: 1 };
+    }
+  })();
+  function applyPreferences() {
+    document.documentElement.style.setProperty('--accent', preferences.accent);
+    document.documentElement.style.setProperty('--accent2', `color-mix(in srgb, ${preferences.accent} 55%, #36d6c2)`);
+    document.documentElement.classList.toggle('rgb-mode', preferences.rgb);
+    document.getElementById('brandName').textContent = preferences.aiName;
+    document.getElementById('welcomeAiName').textContent = preferences.aiName;
+    document.getElementById('welcomeOrb').textContent = [...preferences.aiName.trim()][0]?.toUpperCase() || 'J';
+    document.getElementById('input').placeholder = `Envie uma mensagem para ${preferences.aiName}...`;
+    document.title = `${preferences.aiName} · Chat`;
+  }
+  function savePreferences() {
+    try {
+      localStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences));
+      applyPreferences();
+      return true;
+    } catch {
+      document.getElementById('appearanceStatus').textContent = 'Não foi possível salvar as preferências neste dispositivo.';
+      return false;
+    }
+  }
+  applyPreferences();
   // Theme
   document.documentElement.setAttribute('data-theme', state.theme);
   // Sidebar toggle
@@ -14,6 +52,17 @@ document.addEventListener('DOMContentLoaded', () => {
   function setView(v) {
     state.view = v;
     document.querySelectorAll('.view').forEach(el => { el.hidden = (el.id !== 'view-' + v); });
+    document.getElementById('historyTools').hidden = v !== 'chat';
+    document.getElementById('btnNewChat').hidden = v !== 'chat';
+    document.getElementById('modelSelect').hidden = v !== 'chat';
+    document.getElementById('btnClear').hidden = v !== 'chat';
+    document.getElementById('btnExport').hidden = v !== 'chat';
+    document.getElementById('btnTheme').hidden = v === 'settings';
+    if (v === 'settings') document.getElementById('convTitle').textContent = 'Configurações';
+    else if (state.currentConversationId !== null) {
+      const current = state.conversations.find(conversation => conversation.id === state.currentConversationId);
+      document.getElementById('convTitle').textContent = current?.title || 'Conversa';
+    } else document.getElementById('convTitle').textContent = 'Nova conversa';
     document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
       const active = btn.dataset.view === v;
       btn.classList.toggle('active', active);
@@ -24,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (v === 'files') loadFiles();
     if (v === 'memory') loadMemory();
     if (v === 'tasks') loadTasks();
-    if (v === 'settings') loadSettings();
+    if (v === 'settings') { loadSettings(); loadReports(); }
     if (v === 'diagnostics') loadDiagnostics();
     if (v === 'reports') loadReports();
   }
@@ -99,6 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const welcome = document.createElement('div');
       welcome.className = 'welcome';
       welcome.innerHTML = '<div class="welcome-orb">J</div><p class="eyebrow">JARVES AI · V1000</p><h1>Como posso ajudar<br><span>você hoje?</span></h1><p class="welcome-copy">Pergunte, crie, programe ou organize suas ideias. Sua próxima descoberta começa aqui.</p><div class="welcome-chips"><button type="button" data-prompt="Explique como você pode me ajudar.">✦ Conhecer o JARVES</button><button type="button" data-prompt="Ajude-me a criar um projeto de software.">⌘ Criar um projeto</button><button type="button" data-prompt="Analise este código e sugira melhorias.">⌁ Analisar código</button></div>';
+      welcome.querySelector('.welcome-orb').textContent = [...preferences.aiName.trim()][0]?.toUpperCase() || 'J';
+      welcome.querySelector('.eyebrow').textContent = `${preferences.aiName} · 2.3.2`;
       welcome.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => {
         const input = document.getElementById('input');
         input.value = button.dataset.prompt;
@@ -121,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (meta.model || meta.provider) {
       const m = document.createElement('div');
       m.className = 'msg-meta';
-      m.textContent = [meta.provider, meta.model].filter(Boolean).join(' • ');
+      m.textContent = [preferences.aiName, meta.provider, meta.model].filter(Boolean).join(' • ');
       div.appendChild(m);
     }
     if (role === 'assistant') {
@@ -245,9 +296,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (stopped) bubble.body.innerHTML = renderMarkdown(full) + '\n\n[geracao interrompida]';
       state.messages.push({ role: 'assistant', content: full, model: finalModel, provider: finalProvider });
       // meta
-      const meta = document.createElement('div');
+        const meta = document.createElement('div');
       meta.className = 'msg-meta';
-      meta.textContent = [finalProvider, finalModel].filter(Boolean).join(' • ');
+        meta.textContent = [preferences.aiName, finalProvider, finalModel].filter(Boolean).join(' • ');
       bubble.div.appendChild(meta);
       loadConversations();
     } catch (e) {
@@ -285,9 +336,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Voice input (speech-to-text) if supported
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   const btnVoice = document.getElementById('btnVoice');
+  let speechRecognition = null;
   if (SpeechRec) {
     const rec = new SpeechRec();
-    rec.lang = 'pt-BR';
+    speechRecognition = rec;
+    rec.lang = preferences.speechLanguage;
     rec.continuous = false;
     rec.interimResults = false;
     let listening = false;
@@ -307,11 +360,24 @@ document.addEventListener('DOMContentLoaded', () => {
   } else {
     btnVoice.disabled = true; btnVoice.title = 'Nao suportado neste navegador';
   }
+  document.getElementById('speechLanguage').addEventListener('change', e => {
+    preferences.speechLanguage = e.target.value;
+    if (speechRecognition) speechRecognition.lang = preferences.speechLanguage;
+    if (savePreferences()) document.getElementById('voiceStatus').textContent = 'Idioma da voz salvo.';
+  });
   // Text-to-speech helper for messages
   window.speakText = (text) => {
-    if (!window.speechSynthesis) return;
+    if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+      toast('A síntese de voz não é suportada neste navegador.', 'error');
+      return;
+    }
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'pt-BR';
+    u.lang = preferences.speechLanguage;
+    u.rate = preferences.speechRate;
+    u.pitch = preferences.speechPitch;
+    u.volume = 1;
+    const voice = window.speechSynthesis.getVoices().find(item => item.name === preferences.speechVoice);
+    if (voice) u.voice = voice;
     window.speechSynthesis.speak(u);
   };
 
@@ -323,24 +389,151 @@ document.addEventListener('DOMContentLoaded', () => {
     closeSidebar();
   });
   document.getElementById('btnClear').addEventListener('click', () => {
-    document.getElementById('chatArea').innerHTML = '';
+    state.currentConversationId = null;
+    state.messages = [];
+    document.getElementById('convTitle').textContent = 'Nova conversa';
+    renderChat();
+    loadConversations();
   });
   document.getElementById('btnExport').addEventListener('click', () => {
     const data = JSON.stringify(state.messages, null, 2);
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'conversa.json'; a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
   document.getElementById('searchHistory').addEventListener('input', (e) => {
     loadConversations(e.target.value);
   });
 
   // Theme
-  document.getElementById('btnTheme').addEventListener('click', () => {
-    state.theme = state.theme === 'dark' ? 'light' : 'dark';
+  function applyTheme(theme) {
+    state.theme = theme === 'light' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', state.theme);
     saveTheme(state.theme);
+    const themeSelect = document.getElementById('appearanceTheme');
+    if (themeSelect) themeSelect.value = state.theme;
+  }
+  document.getElementById('btnTheme').addEventListener('click', () => {
+    state.theme = state.theme === 'dark' ? 'light' : 'dark';
+    applyTheme(state.theme);
+  });
+  document.getElementById('aiDisplayName').value = preferences.aiName;
+  document.getElementById('accentColor').value = preferences.accent;
+  document.getElementById('rgbMode').checked = preferences.rgb;
+  document.getElementById('appearanceTheme').value = state.theme;
+  document.getElementById('aiDisplayName').addEventListener('input', e => {
+    preferences.aiName = e.target.value.trim().slice(0, 32) || 'JARVES AI';
+    applyPreferences();
+  });
+  document.getElementById('accentColor').addEventListener('input', e => {
+    preferences.accent = e.target.value;
+    applyPreferences();
+  });
+  document.getElementById('rgbMode').addEventListener('change', e => {
+    preferences.rgb = e.target.checked;
+    applyPreferences();
+  });
+  document.getElementById('appearanceTheme').addEventListener('change', e => applyTheme(e.target.value));
+  document.getElementById('btnSaveAppearance').addEventListener('click', () => {
+    if (savePreferences()) document.getElementById('appearanceStatus').textContent = 'Nome, cores e aparência salvos neste dispositivo.';
+  });
+  document.getElementById('speechLanguage').value = preferences.speechLanguage;
+  for (const [key, id, outputId] of [['speechRate', 'speechRate', 'speechRateValue'], ['speechPitch', 'speechPitch', 'speechPitchValue']]) {
+    const control = document.getElementById(id);
+    const output = document.getElementById(outputId);
+    control.value = String(preferences[key]);
+    output.value = `${Number(control.value).toFixed(1)}×`;
+    control.addEventListener('input', () => {
+      preferences[key] = Number(control.value);
+      output.value = `${preferences[key].toFixed(1)}×`;
+    });
+    control.addEventListener('change', () => {
+      if (savePreferences()) document.getElementById('voiceStatus').textContent = 'Ajustes de voz salvos neste dispositivo.';
+    });
+  }
+  const voiceSelect = document.getElementById('speechVoice');
+  const testVoiceButton = document.getElementById('btnTestVoice');
+  if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+    voiceSelect.disabled = true;
+    testVoiceButton.disabled = true;
+    document.getElementById('voiceStatus').textContent = 'Síntese de voz não é suportada neste navegador.';
+  }
+  function loadSpeechVoices() {
+    if (!window.speechSynthesis) return;
+    const voices = window.speechSynthesis.getVoices();
+    const current = preferences.speechVoice;
+    voiceSelect.replaceChildren(new Option('Voz padrão do dispositivo', ''));
+    for (const voice of voices) voiceSelect.add(new Option(`${voice.name} (${voice.lang})`, voice.name));
+    if (current && !voices.some(voice => voice.name === current)) voiceSelect.add(new Option(`${current} (indisponível)`, current));
+    voiceSelect.value = current;
+    if (window.speechSynthesis && voices.length) document.getElementById('voiceStatus').textContent = `${voices.length} voz(es) disponíveis neste dispositivo.`;
+    else if (window.speechSynthesis) document.getElementById('voiceStatus').textContent = 'Nenhuma voz instalada ainda; será usada a voz padrão do dispositivo.';
+  }
+  loadSpeechVoices();
+  window.speechSynthesis?.addEventListener?.('voiceschanged', loadSpeechVoices);
+  voiceSelect.addEventListener('change', e => {
+    preferences.speechVoice = e.target.value;
+    if (savePreferences()) document.getElementById('voiceStatus').textContent = 'Voz salva neste dispositivo.';
+  });
+  document.getElementById('btnTestVoice').addEventListener('click', () => {
+    window.speakText(`Olá! Eu sou ${preferences.aiName}. Esta é uma amostra da voz selecionada.`);
+  });
+  const repairInput = document.getElementById('repairInput');
+  const repairFile = document.getElementById('repairFile');
+  repairFile.addEventListener('change', async () => {
+    const file = repairFile.files?.[0];
+    if (!file) return;
+    if (file.size > 512 * 1024) {
+      document.getElementById('repairStatus').textContent = 'Arquivo acima do limite de 500 KB.';
+      repairFile.value = '';
+      return;
+    }
+    if (!/\.(txt|log|js|mjs|cjs|html|css|json|md)$/i.test(file.name)) {
+      document.getElementById('repairStatus').textContent = 'Tipo de arquivo não permitido. Use TXT, LOG, JS, HTML, CSS, JSON ou MD.';
+      repairFile.value = '';
+      return;
+    }
+    try {
+      repairInput.value = await file.text();
+      document.getElementById('repairStatus').textContent = `Conteúdo carregado: ${file.name}. Revise antes de enviar ao Chat.`;
+    } catch (error) {
+      document.getElementById('repairStatus').textContent = `Não foi possível ler o arquivo: ${error.message}`;
+    }
+  });
+  document.getElementById('btnAskFix').addEventListener('click', () => {
+    const suppliedText = repairInput.value.trim();
+    const report = window.jarvesHtmlTestReport;
+    const failedTests = report?.checks?.filter(check => !check.ok) || [];
+    if (!suppliedText && !failedTests.length) {
+      document.getElementById('repairStatus').textContent = 'Cole um erro/código ou execute os testes para gerar uma análise.';
+      return;
+    }
+    const systemErrors = window.jarvesDiagnosticReport?.errors || [];
+    const testContext = failedTests.length
+    ? failedTests.map(check => `- ${check.name}: ${check.detail}`).join('\n')
+    : 'Nenhuma falha nos testes HTML executados.';
+    const diagnosticContext = systemErrors.length
+    ? systemErrors.map(error => `- [${error.severity}] ${error.name} (${error.file}${error.line ? ':' + error.line : ''}): ${error.description}`).join('\n')
+    : 'Nenhum erro de sistema registrado no último diagnóstico.';
+    const prompt = [
+      'Analise o erro/código e proponha uma correção segura. Explique a causa, indique os arquivos/trechos afetados e forneça o código corrigido como texto ou diff. Não afirme que alterou arquivos nem execute código.',
+      `Falhas dos testes HTML (${failedTests.length}):`,
+      testContext,
+      'Erros do diagnóstico do sistema:',
+      diagnosticContext,
+      'Erro, relatório ou código fornecido:',
+      suppliedText || '(Nenhum texto adicional fornecido.)',
+    ].join('\n\n').slice(0, 45000);
+    state.currentConversationId = null;
+    state.messages = [];
+    renderChat();
+    setView('chat');
+    const input = document.getElementById('input');
+    input.value = prompt;
+    saveDraft(prompt);
+    input.focus();
+    document.getElementById('repairStatus').textContent = 'Análise preparada no Chat. Revise o texto e envie quando estiver pronto.';
   });
 
   // Models
@@ -571,16 +764,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Settings and AI provider manager
   let savedApiKeyPresent = false;
-  function switchSettingsTab(name) {
-    document.querySelectorAll('[data-settings-tab]').forEach(b => b.classList.toggle('active', b.dataset.settingsTab === name));
-    document.querySelectorAll('[data-settings-panel]').forEach(panel => {
-      const active = panel.dataset.settingsPanel === name;
-      panel.hidden = !active;
-      panel.classList.toggle('active', active);
-    });
-    if (name === 'models') refreshModelManager();
-  }
-  document.querySelectorAll('[data-settings-tab]').forEach(b => b.addEventListener('click', () => switchSettingsTab(b.dataset.settingsTab)));
 
   async function loadSettings() {
     try {
@@ -597,8 +780,6 @@ document.addEventListener('DOMContentLoaded', () => {
         { key: 'openai_model', label: 'Modelo remoto', type: 'text', placeholder: 'nome-do-modelo' },
         { key: 'ai_timeout_ms', label: 'Tempo limite (ms)', type: 'number' },
         { key: 'ai_quality', label: 'Qualidade de resposta', type: 'select', options: ['low','medium','high'] },
-        { key: 'theme', label: 'Tema', type: 'select', options: ['dark','light'] },
-        { key: 'language', label: 'Idioma', type: 'text', placeholder: 'pt-BR' },
       ];
       for (const f of fields) {
         const label = document.createElement('label');
@@ -614,13 +795,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         input.dataset.key = f.key;
         const dflt = (r.defaults || {})[f.key];
-        const fallback = { ai_quality: 'medium', theme: state.theme }[f.key];
+        const fallback = { ai_quality: 'medium' }[f.key];
         input.value = settings[f.key] !== undefined ? settings[f.key] : (dflt !== undefined ? dflt : (fallback !== undefined ? fallback : ''));
         label.appendChild(input); form.appendChild(label);
       }
       document.getElementById('apiKeyInput').value = '';
       document.getElementById('apiKeyStatus').textContent = savedApiKeyPresent ? 'Uma chave está salva. Por segurança, ela não é exibida.' : 'Nenhuma chave cadastrada.';
-      switchSettingsTab('connection');
+      refreshModelManager();
     } catch (e) { toast(e.message, 'error'); }
   }
 
@@ -744,6 +925,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function renderDiagnostics(r) {
     if (!r) return;
+    window.jarvesDiagnosticReport = r;
     const s = r.summary || {};
     document.getElementById('diagSummary').textContent = `Total: ${s.totalErrors || 0} | Criticos: ${s.critical || 0} | Altos: ${s.high || 0} | Medios: ${s.medium || 0} | Baixos: ${s.low || 0} | Testes OK: ${s.testsPass || 0} | Falhas: ${s.testsFail || 0}`;
     const el = document.getElementById('diagErrors');
@@ -763,7 +945,10 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const r = await api.runDiagnostics();
       renderDiagnostics(r);
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) {
+      document.getElementById('diagSummary').textContent = `Não foi possível gerar diagnóstico: ${e.message}`;
+      toast(e.message, 'error');
+    }
     finally { btn.disabled = false; }
   });
   document.getElementById('btnSpeedTest').addEventListener('click', async () => {
@@ -786,14 +971,6 @@ document.addEventListener('DOMContentLoaded', () => {
     status.textContent = failures ? `${failures}/5 verificações falharam; latência indisponível. Tempos observados: ${times.map(t=>t.toFixed(0)).join(', ')} ms` : `Latência média: ${avg} ms (mín. ${min} ms) - ${times.map(t=>t.toFixed(0)).join(', ')} ms`;
     btn.disabled = false;
   });
-  document.getElementById('btnDiag').addEventListener('click', async () => {
-    try {
-      const h = await api.health();
-      const m = await api.listModels().catch(e => ({ error: e.message }));
-      document.getElementById('diag').textContent = JSON.stringify({ health: h, models: m }, null, 2);
-    } catch (e) { toast(e.message, 'error'); }
-  });
-
   async function loadReports() {
     try {
       let r;

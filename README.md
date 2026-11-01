@@ -43,6 +43,12 @@ O APK é um cliente da interface web. O backend e o provedor IA/Ollama continuam
 
 A página de downloads está em `/download.html` quando o servidor JARVES está em execução. Ela consulta o release mais recente e só mostra o botão se encontrar o asset real `app-debug.apk`. Para disponibilizá-la na internet, publique essa página em um hosting autorizado e configure nela o repositório correto. Nenhum hosting foi publicado por esta alteração. O projeto também não gera um EXE Windows atualmente.
 
+## Interface, voz e correção assistida
+- A navegação principal oferece somente **Chat** e **Configurações**, com histórico dentro do chat e atalho para downloads.
+- Em Configurações é possível personalizar nome da IA, cor principal, efeito RGB, tema, voz/idioma e velocidade/tom da síntese de fala disponíveis no navegador. Essas preferências ficam neste dispositivo; síntese e reconhecimento dependem do navegador e das vozes instaladas, não alteram a voz textual do modelo.
+- Configurações reúne testes HTML, diagnóstico do backend e exportação de relatórios TXT/JSON. É possível fornecer um arquivo de texto/código para preparar uma solicitação de análise no Chat. A IA sugere a correção em texto; não executa código nem modifica arquivos automaticamente.
+- Provedores locais Ollama evitam cobrança por chamada, mas usam hardware local e podem exigir baixar modelos; uma IA remota ou voz não instalada não é tornada gratuita por esta interface.
+
 ## Limites conhecidos
 - O APK de depuração é compilado pelo GitHub Actions com Java 17, Android SDK e Gradle 8.9.
 - O EXE Windows não foi executado neste ambiente Linux.

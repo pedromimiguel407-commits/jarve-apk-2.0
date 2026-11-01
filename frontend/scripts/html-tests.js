@@ -21,7 +21,7 @@
     if (progress) progress.textContent = '0%';
 
     // 1. Elementos essenciais da interface
-    const required = ['sidebar','chatArea','input','btnSend','convList','view-html-tests'];
+    const required = ['sidebar','chatArea','input','btnSend','convList','view-settings'];
     required.forEach(id => add(`Elemento #${id}`, byId(id), byId(id) ? 'Encontrado' : 'Elemento ausente'));
 
     // 2. Recursos carregados
@@ -86,6 +86,7 @@
     button.disabled = false;
     button.textContent = 'Executar testes novamente';
     const report = { app: 'JARVES AI', suite: 'HTML Mega Update', date: new Date().toISOString(), passed, failed, checks };
+    window.jarvesHtmlTestReport = report;
     const exportButton = document.getElementById('btnExportHtmlTests');
     if (exportButton) exportButton.onclick = () => {
       const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
@@ -99,6 +100,5 @@
   document.addEventListener('DOMContentLoaded', () => {
     const button = document.getElementById('btnRunHtmlTests');
     if (button) button.addEventListener('click', run);
-    if (document.getElementById('htmlTestResults')) run();
   });
 })();
