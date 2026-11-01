@@ -11,7 +11,11 @@ test('frontend index exists and has key controls', () => {
     assert.ok(html.includes('id="' + id + '"'), 'missing ' + id);
   }
   const navigation = html.match(/<nav class="tool-nav primary-nav"[\s\S]*?<\/nav>/)?.[0] || '';
-  assert.deepEqual([...navigation.matchAll(/data-view="([^"]+)"/g)].map(match => match[1]), ['chat', 'voice-studio', 'settings']);
+  assert.deepEqual([...navigation.matchAll(/data-view="([^"]+)"/g)].map(match => match[1]), ['chat', 'voice-studio', 'html-tests', 'reports', 'settings']);
+  assert.match(html, /id="view-html-tests"[\s\S]*id="btnRunHtmlTests"/);
+  const generator = fs.readFileSync(path.join(root, 'frontend/scripts/gerador.js'), 'utf8');
+  assert.match(generator, /value="modelo-3d"/);
+  assert.match(generator, /provider: 'ollama'/);
   assert.match(navigation, /href="\/download\.html"/);
   for (const id of ['aiDisplayName','accentColor','rgbMode','aiAvatarInput','aiAvatarPreview','btnResetAiAvatar','launcherIcon','launcherIconStatus','speechLanguage','speechVoice','speechRate','speechPitch','btnTestVoice','btnRunHtmlTests','btnRunDiag','repairInput','repairFile','btnAskFix','workflowGoal','btnWorkflowResearch','btnWorkflowPlan','btnWorkflowCreate','btnWorkflowExecute','btnWorkflowPreview','workflowPreview','studioNarration','studioVideoFile','studioVideo','btnSpeakNarration','btnPlayAndSpeak']) {
     assert.ok(html.includes(`id="${id}"`), 'missing preference/diagnostic control ' + id);
@@ -55,7 +59,16 @@ test('Linux packaging builds only an x64 AppImage and uploads it from CI', () =>
 });
 
 test('Android launcher icons target the declared activity and expose only packaged choices', () => {
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const androidBuild = fs.readFileSync(path.join(root, 'android/app/build.gradle'), 'utf8');
+  const environment = fs.readFileSync(path.join(root, 'backend/config/env.mjs'), 'utf8');
+  assert.equal(packageJson.version, '2.3.4');
+  assert.match(androidBuild, /versionCode 234[\s\S]*versionName '2\.3\.4'/);
+  assert.match(environment, /APP_VERSION = '2\.3\.4'/);
   const manifest = fs.readFileSync(path.join(root, 'android/app/src/main/AndroidManifest.xml'), 'utf8');
+  for (const permission of ['INTERNET', 'ACCESS_NETWORK_STATE', 'ACCESS_WIFI_STATE', 'CHANGE_WIFI_MULTICAST_STATE']) {
+    assert.match(manifest, new RegExp(`android:name="android\\.permission\\.${permission}"`));
+  }
   const activityIndex = manifest.indexOf('android:name=".MainActivity"');
   assert.notEqual(activityIndex, -1);
   for (const alias of ['.DefaultLauncher', '.RobotLauncher']) {
@@ -65,6 +78,12 @@ test('Android launcher icons target the declared activity and expose only packag
   }
   const activity = fs.readFileSync(path.join(root, 'android/app/src/main/java/com/jarves/ai/MainActivity.java'), 'utf8');
   assert.match(activity, /"default"\.equals\(requestedIcon\).*?"robot"\.equals\(requestedIcon\)/s);
+  assert.match(activity, /discoverServices\(JARVES_SERVICE_TYPE/);
+  assert.match(activity, /verifyJarvesServer\(serverUrl, generation\)/);
+  assert.match(activity, /getNetworkCapabilities\(network\)/);
+  const discovery = fs.readFileSync(path.join(root, 'backend/services/lanDiscovery.mjs'), 'utf8');
+  assert.match(discovery, /type: 'jarves'/);
+  assert.match(discovery, /txt: \{ app: 'jarves-ai', version \}/);
   for (const density of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
     for (const icon of ['ic_launcher.png', 'ic_launcher_alt.png']) {
       assert.ok(fs.existsSync(path.join(root, `android/app/src/main/res/mipmap-${density}/${icon}`)), `${density}/${icon}`);

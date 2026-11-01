@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { env, ROOT, ensureDirs, APP_VERSION } from './config/env.mjs';
 import { securityHeaders, cors, errorHandler, adminGuard } from './middleware/security.mjs';
+import { shouldAdvertiseLanHost, startJarvesLanDiscovery } from './services/lanDiscovery.mjs';
 import healthRouter from './routes/health.mjs';
 import convRouter from './routes/conversations.mjs';
 import chatRouter from './routes/chat.mjs';
@@ -81,9 +82,17 @@ app.use(errorHandler);
 
 export default app;
 export function startServer(port = env.PORT, host = env.HOST) {
-  return app.listen(port, host, () => {
+  const server = app.listen(port, host, () => {
     if (process.env.NODE_ENV !== 'test') console.log(`JARVES AI ${APP_VERSION} rodando em http://${host}:${port}`);
+    if (shouldAdvertiseLanHost(host)) {
+      const discoveryPort = server.address()?.port;
+      if (typeof discoveryPort === 'number') {
+        const stopDiscovery = startJarvesLanDiscovery(discoveryPort, APP_VERSION);
+        server.once('close', stopDiscovery);
+      }
+    }
   });
+  return server;
 }
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);

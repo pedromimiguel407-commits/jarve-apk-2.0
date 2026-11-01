@@ -16,12 +16,14 @@
 <div class="app-shell">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <a class="brand" href="/" aria-label="JARVES AI início"><span class="brand-mark" id="brandMark">J</span><span><b id="brandName">JARVES AI</b><small>2.3.3 · MEGA UPDATE</small></span></a>
+      <a class="brand" href="/" aria-label="JARVES AI início"><span class="brand-mark" id="brandMark">J</span><span><b id="brandName">JARVES AI</b><small>2.3.4 · MEGA UPDATE</small></span></a>
       <button class="icon-btn mobile-close" id="btnCloseSidebar" aria-label="Fechar menu">×</button>
     </div>
     <nav class="tool-nav primary-nav" aria-label="Navegação principal">
       <button class="nav-btn active" data-view="chat" type="button"><span>✧</span> Chat</button>
       <button class="nav-btn" data-view="voice-studio" type="button"><span>♫</span> Voz e vídeo</button>
+      <button class="nav-btn" data-view="html-tests" type="button"><span>⌘</span> Testes HTML</button>
+      <button class="nav-btn" data-view="reports" type="button"><span>▤</span> Relatórios</button>
       <button class="nav-btn" data-view="settings" type="button"><span>⚙</span> Configurações</button>
       <a class="nav-btn" href="/download.html"><span>⇩</span> Baixar aplicativo</a>
     </nav>
@@ -31,7 +33,7 @@
       <div class="side-label">CONVERSAS</div>
       <nav class="sidebar-nav" id="convList" aria-label="Conversas"></nav>
     </div>
-    <div class="sidebar-bottom"><span class="online-dot"></span><span id="aiRuntimeStatus" role="status">Verificando provedor de IA...</span><small>v2.3.3</small></div>
+    <div class="sidebar-bottom"><span class="online-dot"></span><span id="aiRuntimeStatus" role="status">Verificando provedor de IA...</span><small>v2.3.4</small></div>
   </aside>
   <button class="overlay" id="overlay" aria-label="Fechar menu"></button>
   <main class="main">
@@ -46,7 +48,7 @@
     </header>
     <section class="view view-chat" id="view-chat">
       <div class="chat-area" id="chatArea" role="log" aria-live="polite">
-        <div class="welcome" id="welcomePanel"><div class="welcome-orb" id="welcomeOrb">J</div><p class="eyebrow"><span id="welcomeAiName">JARVES AI</span> · 2.3.3</p><h1>Como posso ajudar<br><span>você hoje?</span></h1><p class="welcome-copy">Pergunte, crie, programe ou organize suas ideias. Sua próxima descoberta começa aqui.</p><div class="welcome-chips"><button type="button" data-prompt="Explique como você pode me ajudar.">✦ Conhecer o JARVES</button><button type="button" data-prompt="Ajude-me a criar um projeto de software.">⌘ Criar um projeto</button><button type="button" data-prompt="Analise este código e sugira melhorias.">⌁ Analisar código</button></div></div>
+        <div class="welcome" id="welcomePanel"><div class="welcome-orb" id="welcomeOrb">J</div><p class="eyebrow"><span id="welcomeAiName">JARVES AI</span> · 2.3.4</p><h1>Como posso ajudar<br><span>você hoje?</span></h1><p class="welcome-copy">Pergunte, crie, programe ou organize suas ideias. Sua próxima descoberta começa aqui.</p><div class="welcome-chips"><button type="button" data-prompt="Explique como você pode me ajudar.">✦ Conhecer o JARVES</button><button type="button" data-prompt="Ajude-me a criar um projeto de software.">⌘ Criar um projeto</button><button type="button" data-prompt="Analise este código e sugira melhorias.">⌁ Analisar código</button></div></div>
       </div>
       <div class="suggestions" id="suggestions"></div>
       <div class="composer-wrap"><div class="composer">
@@ -71,6 +73,21 @@
         <input id="studioVideoFile" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-m4v,.mp4,.webm,.mov,.m4v">
         <video id="studioVideo" controls playsinline hidden></video>
         <div id="studioVideoStatus" class="status" aria-live="polite">Selecione um vídeo suportado pelo navegador para visualizar.</div>
+      </div>
+    </section>
+    <section class="view content-view" id="view-html-tests" hidden>
+      <div class="page-heading"><p class="eyebrow">QUALIDADE DO SISTEMA</p><h1>Testes HTML e diagnóstico</h1><p>Verifique a interface, o navegador e a conexão; exporte um relatório para investigar falhas.</p></div>
+      <div class="panel html-test-panel">
+        <div class="row html-test-toolbar"><div><h3>Testes do aplicativo</h3><p class="muted-copy">Os testes são locais e não alteram seus dados. Rode novamente quando precisar.</p></div><span id="htmlTestProgress" class="html-test-progress">0%</span></div>
+        <div id="htmlTestSummary" class="status" aria-live="polite">Os testes ainda não foram executados.</div>
+        <div class="row"><button class="primary-btn" id="btnRunHtmlTests" type="button">Executar testes</button><button class="secondary-btn" id="btnExportHtmlTests" type="button">Exportar relatório JSON</button></div>
+        <div id="htmlTestResults" class="html-test-results" aria-live="polite"></div>
+      </div>
+      <div class="panel">
+        <h3>Diagnóstico do sistema</h3>
+        <p class="muted-copy">Verifique a saúde do servidor, a latência e os testes internos.</p>
+        <div class="row"><button class="secondary-btn" id="btnRunDiag" type="button">Gerar diagnóstico do sistema</button><button class="secondary-btn" id="btnSpeedTest" type="button">Testar conexão</button><a class="secondary-btn" href="/api/diagnostics/export?format=txt" target="_blank" rel="noopener">Relatório TXT ↗</a><a class="secondary-btn" href="/api/diagnostics/export?format=json" target="_blank" rel="noopener">Relatório JSON ↗</a></div>
+        <div id="diagSummary" class="status" aria-live="polite"></div><div id="diagErrors" class="list"></div><pre id="diagRaw" class="result-box"></pre>
       </div>
     </section>
     <section class="view content-view" id="view-agents" hidden><div class="page-heading"><p class="eyebrow">AUTOMAÇÃO INTELIGENTE</p><h1>Agentes especializados</h1><p>Escolha um agente e delegue uma tarefa.</p></div><div class="card-grid" id="agentsGrid"></div><div class="panel"><h3>Executar agente</h3><select id="agentSelect"></select><textarea id="agentTask" placeholder="Descreva a tarefa para o agente..."></textarea><button class="primary-btn" id="btnRunAgent">Executar agente</button><pre id="agentResult" class="result-box"></pre></div></section>
@@ -115,20 +132,6 @@
         <pre id="workflowResult" class="result-box"></pre>
         <button class="secondary-btn" id="btnWorkflowPreview" type="button" disabled>Pré-visualizar HTML em sandbox</button>
         <iframe id="workflowPreview" title="Pré-visualização isolada do HTML gerado" sandbox="allow-scripts" hidden></iframe>
-      </div>
-      <div class="panel html-test-panel">
-        <div class="row html-test-toolbar"><div><h3>Testes HTML e diagnóstico</h3><p class="muted-copy">Verifique interface, navegador, armazenamento e conexão. Rode novamente quando precisar.</p></div><span id="htmlTestProgress" class="html-test-progress">0%</span></div>
-        <div id="htmlTestSummary" class="status" aria-live="polite">Os testes ainda não foram executados.</div>
-        <div class="row"><button class="primary-btn" id="btnRunHtmlTests" type="button">Executar testes</button><button class="secondary-btn" id="btnExportHtmlTests" type="button">Exportar relatório JSON</button></div>
-        <div id="htmlTestResults" class="html-test-results" aria-live="polite"></div>
-        <hr>
-        <div class="row"><button class="secondary-btn" id="btnRunDiag" type="button">Gerar diagnóstico do sistema</button><button class="secondary-btn" id="btnSpeedTest" type="button">Testar conexão</button><a class="secondary-btn" href="/api/diagnostics/export?format=txt" target="_blank" rel="noopener">Relatório TXT ↗</a><a class="secondary-btn" href="/api/diagnostics/export?format=json" target="_blank" rel="noopener">Relatório JSON ↗</a></div>
-        <div id="diagSummary" class="status" aria-live="polite"></div><div id="diagErrors" class="list"></div><pre id="diagRaw" class="result-box"></pre>
-      </div>
-      <div class="panel">
-        <div class="row html-test-toolbar"><div><h3>Relatórios de erros e bugs</h3><p class="muted-copy">Consulte o resumo do diagnóstico mais recente.</p></div><button class="secondary-btn" id="btnRefreshReports" type="button">Atualizar relatório</button></div>
-        <div id="resolvedBugs" class="list" aria-live="polite"></div>
-        <pre id="reportRaw" class="result-box"></pre>
       </div>
       <div class="panel">
         <h3>Ajuda para corrigir um erro</h3>

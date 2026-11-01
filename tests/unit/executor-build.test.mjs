@@ -13,8 +13,8 @@ test('JARVES_EXECUTOR.html e gerado como arquivo unico, sem referencias externas
   assert.ok(!/(src|href)="\/(scripts|styles|assets|manifest)/.test(html), 'nao pode apontar para arquivos externos');
   assert.ok(html.includes('jarves-executor'), 'backend de navegador embutido');
   assert.ok(html.includes('id="chatArea"'), 'interface embutida');
-  // 7 = backend + 5 scripts do frontend + script inline original; +1 motor da IA base; +4 jogos HTML dentro do motor (texto)
-  assert.equal((html.match(/<script>/g) || []).length, 17); // scripts reais + textos "<script>" dentro dos jogos e do gerador
+  // Includes generated preview scripts as strings embedded in the base engine.
+  assert.equal((html.match(/<script>/g) || []).length, 18);
   assert.ok(html.includes('JARVES_BASE'), 'IA base embutida');
 });
 

@@ -2,17 +2,27 @@ package com.jarves.ai;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.ComponentName;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.Uri;
+import android.net.nsd.NsdManager;
+import android.net.nsd.NsdServiceInfo;
+import android.net.wifi.WifiManager;
 import android.content.pm.PackageManager;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
-import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
 import android.webkit.WebChromeClient;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -22,26 +32,113 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.util.Log;
+import org.json.JSONObject;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.Set;
 
 public class MainActivity extends Activity {
     private static final String PREFS = "jarves";
     private static final String KEY_URL = "server_url";
     private static final String KEY_LAUNCHER_ICON = "launcher_icon";
     private static final int PICK_FILE_REQUEST = 7412;
+    private static final String JARVES_SERVICE_TYPE = "_jarves._tcp.";
+    private static final int DISCOVERY_TIMEOUT_MS = 15000;
     private WebView webView;
     private TextView loading;
     private String serverOrigin = "";
     private ValueCallback<Uri[]> fileChooserCallback;
+    private NsdManager nsdManager;
+    private ConnectivityManager connectivityManager;
+    private WifiManager wifiManager;
+    private WifiManager.MulticastLock multicastLock;
+    private NsdManager.DiscoveryListener discoveryListener;
+    private AlertDialog serverDialog;
+    private Handler mainHandler;
+    private Runnable discoveryTimeout;
+    private final Set<String> resolvingServices = new HashSet<>();
+    private int discoveryGeneration;
+    private boolean serverConnected;
+    private boolean serverUrlLoadPending;
+    private boolean networkCallbackRegistered;
+    private Network activeWifiNetwork;
+    private final ConnectivityManager.NetworkCallback wifiNetworkCallback = new ConnectivityManager.NetworkCallback() {
+        @Override public void onAvailable(Network network) {
+            NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
+            if (capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                activeWifiNetwork = network;
+                mainHandler.post(() -> {
+                    if (!serverConnected && !serverUrlLoadPending) startDiscovery();
+                });
+            }
+        }
+        @Override public void onLost(Network network) {
+            if (network.equals(activeWifiNetwork)) {
+                activeWifiNetwork = null;
+                mainHandler.post(() -> {
+                    serverConnected = false;
+                    loading.setVisibility(View.VISIBLE);
+                    loading.setText("Wi-Fi desconectado · aguardando a rede para procurar JARVES...");
+                    stopDiscovery();
+                });
+            }
+        }
+    };
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        mainHandler = new Handler(Looper.getMainLooper());
+        nsdManager = (NsdManager) getSystemService(Context.NSD_SERVICE);
+        connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setStatusBarColor(0xFF080D1A);
         getWindow().setNavigationBarColor(0xFF080D1A);
         buildUi();
         String saved = getPreferences(MODE_PRIVATE).getString(KEY_URL, "");
-        if (saved.isEmpty()) showServerDialog();
+        if (saved.isEmpty()) startDiscovery();
         else loadServer(saved);
+    }
+
+    @Override protected void onStart() {
+        super.onStart();
+        try {
+            connectivityManager.registerDefaultNetworkCallback(wifiNetworkCallback);
+            networkCallbackRegistered = true;
+        } catch (RuntimeException error) {
+            Log.e("JARVES", "Não foi possível acompanhar a conexão Wi-Fi.", error);
+        }
+    }
+
+    @Override protected void onStop() {
+        if (networkCallbackRegistered) {
+            try {
+                connectivityManager.unregisterNetworkCallback(wifiNetworkCallback);
+            } catch (IllegalArgumentException error) {
+                Log.w("JARVES", "O monitor de rede já estava desativado.", error);
+            }
+            networkCallbackRegistered = false;
+        }
+        stopDiscovery();
+        serverConnected = false;
+        serverUrlLoadPending = false;
+        super.onStop();
+    }
+
+    @Override protected void onDestroy() {
+        stopDiscovery();
+        if (fileChooserCallback != null) {
+            fileChooserCallback.onReceiveValue(null);
+            fileChooserCallback = null;
+        }
+        super.onDestroy();
     }
 
     private void buildUi() {
@@ -82,11 +179,23 @@ public class MainActivity extends Activity {
         });
         webView.setWebViewClient(new WebViewClient() {
             @Override public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                serverUrlLoadPending = true;
                 loading.setVisibility(View.VISIBLE);
                 loading.setText("JARVES AI · Carregando...");
             }
             @Override public void onPageFinished(WebView view, String url) {
+                serverUrlLoadPending = false;
+                serverConnected = true;
                 loading.setVisibility(View.GONE);
+            }
+            @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                if (request.isForMainFrame()) {
+                    serverUrlLoadPending = false;
+                    serverConnected = false;
+                    loading.setVisibility(View.VISIBLE);
+                    loading.setText("Servidor indisponível · procurando JARVES na rede Wi-Fi...");
+                    startDiscovery();
+                }
             }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
@@ -117,6 +226,7 @@ public class MainActivity extends Activity {
     }
 
     private void showServerDialog() {
+        if (serverDialog != null && serverDialog.isShowing()) return;
         final EditText input = new EditText(this);
         input.setSingleLine(true);
         input.setHint("http://192.168.1.10:3000");
@@ -125,25 +235,34 @@ public class MainActivity extends Activity {
         LinearLayout box = new LinearLayout(this);
         box.setPadding(24, 8, 24, 0);
         box.addView(input);
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
             .setTitle("Conectar ao JARVES AI")
-            .setMessage("Informe o endereço do servidor JARVES. O PC e o Android devem estar na mesma rede Wi-Fi.")
+            .setMessage("Não encontrei um servidor JARVES na rede Wi-Fi. Inicie o JARVES no computador na mesma rede ou informe o endereço do servidor.")
             .setView(box)
             .setCancelable(false)
             .setPositiveButton("Conectar", (d, w) -> {
                 String value = input.getText().toString().trim();
                 if (!value.matches("^https?://[^\\s]+$")) {
                     Toast.makeText(this, "Informe um endereço http:// ou https:// válido.", Toast.LENGTH_LONG).show();
-                    showServerDialog();
+                    mainHandler.post(() -> {
+                        if (serverDialog == null) showServerDialog();
+                    });
                     return;
                 }
                 loadServer(value);
             })
+            .setNeutralButton("Procurar novamente", (d, w) -> startDiscovery())
             .setNegativeButton("Sair", (d, w) -> finish())
-            .show();
+            .create();
+        serverDialog = dialog;
+        dialog.setOnDismissListener(ignored -> {
+            if (serverDialog == dialog) serverDialog = null;
+        });
+        dialog.show();
     }
 
     private void loadServer(String value) {
+        stopDiscovery();
         String normalized = value.replaceAll("/+$", "");
         Uri uri = Uri.parse(normalized);
         if (uri.getHost() == null || (!"http".equals(uri.getScheme()) && !"https".equals(uri.getScheme()))) {
@@ -151,10 +270,166 @@ public class MainActivity extends Activity {
             return;
         }
         serverOrigin = uri.getScheme() + "://" + uri.getAuthority();
+        serverConnected = false;
+        serverUrlLoadPending = true;
         getPreferences(MODE_PRIVATE).edit().putString(KEY_URL, normalized).apply();
         loading.setVisibility(View.VISIBLE);
         loading.setText("Conectando a " + serverOrigin);
         webView.loadUrl(normalized);
+    }
+
+    private void startDiscovery() {
+        if (serverConnected || discoveryListener != null || isFinishing()) return;
+        if (nsdManager == null) {
+            loading.setText("Descoberta automática indisponível. Informe o endereço do servidor.");
+            showServerDialog();
+            return;
+        }
+        final int generation = ++discoveryGeneration;
+        resolvingServices.clear();
+        loading.setVisibility(View.VISIBLE);
+        loading.setText("Procurando JARVES na rede Wi-Fi...");
+        try {
+            if (wifiManager != null && (multicastLock == null || !multicastLock.isHeld())) {
+                multicastLock = wifiManager.createMulticastLock("jarves-mdns-discovery");
+                multicastLock.setReferenceCounted(false);
+                multicastLock.acquire();
+            }
+        } catch (RuntimeException error) {
+            Log.e("JARVES", "Não foi possível habilitar a descoberta local da rede.", error);
+        }
+        NsdManager.DiscoveryListener listener = new NsdManager.DiscoveryListener() {
+            @Override public void onDiscoveryStarted(String serviceType) {}
+            @Override public void onServiceFound(NsdServiceInfo service) {
+                if (generation != discoveryGeneration || !JARVES_SERVICE_TYPE.equals(service.getServiceType())) return;
+                if (!resolvingServices.add(service.getServiceName())) return;
+                resolveJarvesService(service, generation);
+            }
+            @Override public void onServiceLost(NsdServiceInfo service) {
+                resolvingServices.remove(service.getServiceName());
+            }
+            @Override public void onDiscoveryStopped(String serviceType) {}
+            @Override public void onStartDiscoveryFailed(String serviceType, int errorCode) {
+                runOnUiThread(() -> {
+                    if (generation != discoveryGeneration) return;
+                    Log.e("JARVES", "Falha ao procurar JARVES na rede. Código NSD: " + errorCode);
+                    stopDiscovery();
+                    loading.setText("Não foi possível procurar automaticamente. Informe o endereço do servidor.");
+                    showServerDialog();
+                });
+            }
+            @Override public void onStopDiscoveryFailed(String serviceType, int errorCode) {
+                Log.e("JARVES", "Falha ao encerrar a busca NSD. Código: " + errorCode);
+            }
+        };
+        discoveryListener = listener;
+        try {
+            nsdManager.discoverServices(JARVES_SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener);
+            discoveryTimeout = () -> {
+                if (generation != discoveryGeneration) return;
+                if (serverConnected) {
+                    stopDiscovery();
+                    return;
+                }
+                stopDiscovery();
+                loading.setText("Nenhum servidor JARVES encontrado nesta rede.");
+                showServerDialog();
+            };
+            mainHandler.postDelayed(discoveryTimeout, DISCOVERY_TIMEOUT_MS);
+        } catch (RuntimeException error) {
+            Log.e("JARVES", "Não foi possível iniciar a descoberta do servidor.", error);
+            stopDiscovery();
+            loading.setText("Descoberta automática indisponível. Informe o endereço do servidor.");
+            showServerDialog();
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private void resolveJarvesService(NsdServiceInfo service, int generation) {
+        try {
+            nsdManager.resolveService(service, new NsdManager.ResolveListener() {
+                @Override public void onResolveFailed(NsdServiceInfo serviceInfo, int errorCode) {
+                    Log.w("JARVES", "Não foi possível resolver o servidor anunciado. Código NSD: " + errorCode);
+                }
+                @Override public void onServiceResolved(NsdServiceInfo serviceInfo) {
+                    if (generation != discoveryGeneration || serverConnected) return;
+                    InetAddress address = serviceInfo.getHost();
+                    if (!(address instanceof Inet4Address)
+                        || (!address.isSiteLocalAddress() && !address.isLinkLocalAddress())
+                        || serviceInfo.getPort() < 1
+                        || serviceInfo.getPort() > 65535) {
+                        Log.w("JARVES", "Ignorando serviço anunciado fora da rede local permitida.");
+                        return;
+                    }
+                    String serverUrl = "http://" + address.getHostAddress() + ":" + serviceInfo.getPort();
+                    verifyJarvesServer(serverUrl, generation);
+                }
+            });
+        } catch (RuntimeException error) {
+            Log.w("JARVES", "Não foi possível resolver o serviço JARVES.", error);
+        }
+    }
+
+    private void verifyJarvesServer(String serverUrl, int generation) {
+        new Thread(() -> {
+            HttpURLConnection connection = null;
+            boolean isJarves = false;
+            try {
+                connection = (HttpURLConnection) new URL(serverUrl + "/api/health").openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(3000);
+                connection.setReadTimeout(3000);
+                connection.setInstanceFollowRedirects(false);
+                if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                    try (InputStream input = connection.getInputStream();
+                         ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                        byte[] buffer = new byte[1024];
+                        int total = 0;
+                        int count;
+                        while ((count = input.read(buffer)) != -1) {
+                            total += count;
+                            if (total > 8192) break;
+                            output.write(buffer, 0, count);
+                        }
+                        JSONObject health = new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
+                        isJarves = total <= 8192
+                            && "ok".equals(health.optString("status"))
+                            && !health.optString("version").isEmpty();
+                    }
+                }
+            } catch (Exception error) {
+                Log.w("JARVES", "Servidor anunciado não respondeu à verificação de saúde: " + serverUrl, error);
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+            if (isJarves) {
+                mainHandler.post(() -> {
+                    if (generation != discoveryGeneration || serverConnected) return;
+                    stopDiscovery();
+                    loading.setText("Servidor JARVES encontrado · conectando...");
+                    loadServer(serverUrl);
+                });
+            }
+        }, "jarves-server-check").start();
+    }
+
+    private void stopDiscovery() {
+        discoveryGeneration++;
+        if (discoveryTimeout != null) {
+            mainHandler.removeCallbacks(discoveryTimeout);
+            discoveryTimeout = null;
+        }
+        NsdManager.DiscoveryListener listener = discoveryListener;
+        discoveryListener = null;
+        if (listener != null && nsdManager != null) {
+            try {
+                nsdManager.stopServiceDiscovery(listener);
+            } catch (IllegalArgumentException error) {
+                Log.w("JARVES", "A busca de rede já estava encerrada.", error);
+            }
+        }
+        resolvingServices.clear();
+        if (multicastLock != null && multicastLock.isHeld()) multicastLock.release();
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
