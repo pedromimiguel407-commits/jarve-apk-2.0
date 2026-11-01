@@ -16,7 +16,7 @@
 <div class="app-shell">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <a class="brand" href="/" aria-label="JARVES AI início"><span class="brand-mark" id="brandMark">J</span><span><b id="brandName">JARVES AI</b><small>2.3.2 · MEGA UPDATE</small></span></a>
+      <a class="brand" href="/" aria-label="JARVES AI início"><span class="brand-mark" id="brandMark">J</span><span><b id="brandName">JARVES AI</b><small>2.3.3 · MEGA UPDATE</small></span></a>
       <button class="icon-btn mobile-close" id="btnCloseSidebar" aria-label="Fechar menu">×</button>
     </div>
     <nav class="tool-nav primary-nav" aria-label="Navegação principal">
@@ -31,7 +31,7 @@
       <div class="side-label">CONVERSAS</div>
       <nav class="sidebar-nav" id="convList" aria-label="Conversas"></nav>
     </div>
-    <div class="sidebar-bottom"><span class="online-dot"></span><span id="aiRuntimeStatus" role="status">Verificando provedor de IA...</span><small>v2.3.2</small></div>
+    <div class="sidebar-bottom"><span class="online-dot"></span><span id="aiRuntimeStatus" role="status">Verificando provedor de IA...</span><small>v2.3.3</small></div>
   </aside>
   <button class="overlay" id="overlay" aria-label="Fechar menu"></button>
   <main class="main">
@@ -46,7 +46,7 @@
     </header>
     <section class="view view-chat" id="view-chat">
       <div class="chat-area" id="chatArea" role="log" aria-live="polite">
-        <div class="welcome" id="welcomePanel"><div class="welcome-orb" id="welcomeOrb">J</div><p class="eyebrow"><span id="welcomeAiName">JARVES AI</span> · 2.3.2</p><h1>Como posso ajudar<br><span>você hoje?</span></h1><p class="welcome-copy">Pergunte, crie, programe ou organize suas ideias. Sua próxima descoberta começa aqui.</p><div class="welcome-chips"><button type="button" data-prompt="Explique como você pode me ajudar.">✦ Conhecer o JARVES</button><button type="button" data-prompt="Ajude-me a criar um projeto de software.">⌘ Criar um projeto</button><button type="button" data-prompt="Analise este código e sugira melhorias.">⌁ Analisar código</button></div></div>
+        <div class="welcome" id="welcomePanel"><div class="welcome-orb" id="welcomeOrb">J</div><p class="eyebrow"><span id="welcomeAiName">JARVES AI</span> · 2.3.3</p><h1>Como posso ajudar<br><span>você hoje?</span></h1><p class="welcome-copy">Pergunte, crie, programe ou organize suas ideias. Sua próxima descoberta começa aqui.</p><div class="welcome-chips"><button type="button" data-prompt="Explique como você pode me ajudar.">✦ Conhecer o JARVES</button><button type="button" data-prompt="Ajude-me a criar um projeto de software.">⌘ Criar um projeto</button><button type="button" data-prompt="Analise este código e sugira melhorias.">⌁ Analisar código</button></div></div>
       </div>
       <div class="suggestions" id="suggestions"></div>
       <div class="composer-wrap"><div class="composer">
@@ -85,7 +85,13 @@
         <label>Cor principal<input id="accentColor" type="color" value="#7c8cff"></label>
         <label class="toggle-label"><input id="rgbMode" type="checkbox"> Efeito RGB animado</label>
         <label>Tema<select id="appearanceTheme"><option value="dark">Escuro</option><option value="light">Claro</option></select></label>
-      </div><button class="primary-btn" id="btnSaveAppearance" type="button">Salvar aparência</button><div id="appearanceStatus" class="status" aria-live="polite"></div></div>
+      </div>
+      <div class="avatar-setting">
+        <img id="aiAvatarPreview" alt="Prévia da imagem da IA">
+        <div class="avatar-setting-controls"><label for="aiAvatarInput">Imagem/avatar da IA</label><input id="aiAvatarInput" type="file" accept="image/png,image/jpeg,image/webp"><p class="muted-copy">Imagem quadrada salva neste dispositivo e exibida no menu e no chat (máx. 5 MB).</p><button class="secondary-btn" id="btnResetAiAvatar" type="button">Usar inicial do nome</button></div>
+      </div>
+      <div class="launcher-icon-setting"><label for="launcherIcon">Ícone do APK na tela inicial do Android</label><select id="launcherIcon"><option value="default">JARVES AI · azul</option><option value="robot">JARVES AI · turquesa</option></select><p class="muted-copy">No APK, escolha um dos ícones incluídos. Fora do APK esta opção não fica disponível.</p><div id="launcherIconStatus" class="status" aria-live="polite"></div></div>
+      <button class="primary-btn" id="btnSaveAppearance" type="button">Salvar aparência</button><div id="appearanceStatus" class="status" aria-live="polite"></div></div>
       <div class="panel"><h3>Voz do navegador</h3><p class="muted-copy">A voz e a entrada por microfone usam os recursos instalados no seu dispositivo/navegador; elas não alteram a voz do modelo de texto.</p><div class="form-grid">
         <label>Idioma da voz<select id="speechLanguage"><option value="pt-BR">Português (Brasil)</option><option value="pt-PT">Português (Portugal)</option><option value="en-US">English (US)</option><option value="es-ES">Español</option></select></label>
         <label>Voz instalada<select id="speechVoice"><option value="">Voz padrão do dispositivo</option></select></label>

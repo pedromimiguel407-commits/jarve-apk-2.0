@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const saved = JSON.parse(localStorage.getItem(PREFERENCES_KEY) || '{}');
       return {
         aiName: typeof saved.aiName === 'string' && saved.aiName.trim() ? saved.aiName.trim().slice(0, 32) : 'JARVES AI',
+        avatar: typeof saved.avatar === 'string' && saved.avatar.length <= 500_000 && /^data:image\/(?:png|jpeg|webp);base64,/i.test(saved.avatar) ? saved.avatar : '',
         accent: /^#[\da-f]{6}$/i.test(saved.accent || '') ? saved.accent : '#7c8cff',
         rgb: saved.rgb === true,
         speechLanguage: ['pt-BR', 'pt-PT', 'en-US', 'es-ES'].includes(saved.speechLanguage) ? saved.speechLanguage : 'pt-BR',
@@ -13,16 +14,30 @@ document.addEventListener('DOMContentLoaded', () => {
         speechPitch: Number.isFinite(saved.speechPitch) ? Math.min(1.3, Math.max(0.7, saved.speechPitch)) : 1,
       };
     } catch {
-      return { aiName: 'JARVES AI', accent: '#7c8cff', rgb: false, speechLanguage: 'pt-BR', speechVoice: '', speechRate: 1, speechPitch: 1 };
+      return { aiName: 'JARVES AI', avatar: '', accent: '#7c8cff', rgb: false, speechLanguage: 'pt-BR', speechVoice: '', speechRate: 1, speechPitch: 1 };
     }
   })();
+  function applyAvatar(element, fallback) {
+    if (!element) return;
+    element.textContent = preferences.avatar ? '' : fallback;
+    element.style.backgroundImage = preferences.avatar ? `url("${preferences.avatar}")` : '';
+    element.classList.toggle('has-avatar', Boolean(preferences.avatar));
+  }
   function applyPreferences() {
     document.documentElement.style.setProperty('--accent', preferences.accent);
     document.documentElement.style.setProperty('--accent2', `color-mix(in srgb, ${preferences.accent} 55%, #36d6c2)`);
     document.documentElement.classList.toggle('rgb-mode', preferences.rgb);
     document.getElementById('brandName').textContent = preferences.aiName;
-    document.getElementById('welcomeAiName').textContent = preferences.aiName;
-    document.getElementById('welcomeOrb').textContent = [...preferences.aiName.trim()][0]?.toUpperCase() || 'J';
+    const initial = [...preferences.aiName.trim()][0]?.toUpperCase() || 'J';
+    applyAvatar(document.getElementById('brandMark'), initial);
+    document.querySelectorAll('.welcome-orb').forEach(element => applyAvatar(element, initial));
+    const welcomeName = document.getElementById('welcomeAiName');
+    if (welcomeName) welcomeName.textContent = preferences.aiName;
+    const avatarPreview = document.getElementById('aiAvatarPreview');
+    if (avatarPreview) {
+      avatarPreview.src = preferences.avatar || '/assets/icon-192.png';
+      avatarPreview.classList.toggle('custom-avatar', Boolean(preferences.avatar));
+    }
     document.getElementById('input').placeholder = `Envie uma mensagem para ${preferences.aiName}...`;
     document.title = `${preferences.aiName} · Chat`;
   }
@@ -153,15 +168,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!state.messages.length) {
       const welcome = document.createElement('div');
       welcome.className = 'welcome';
-      welcome.innerHTML = '<div class="welcome-orb">J</div><p class="eyebrow">JARVES AI · V1000</p><h1>Como posso ajudar<br><span>você hoje?</span></h1><p class="welcome-copy">Pergunte, crie, programe ou organize suas ideias. Sua próxima descoberta começa aqui.</p><div class="welcome-chips"><button type="button" data-prompt="Explique como você pode me ajudar.">✦ Conhecer o JARVES</button><button type="button" data-prompt="Ajude-me a criar um projeto de software.">⌘ Criar um projeto</button><button type="button" data-prompt="Analise este código e sugira melhorias.">⌁ Analisar código</button></div>';
-      welcome.querySelector('.welcome-orb').textContent = [...preferences.aiName.trim()][0]?.toUpperCase() || 'J';
-      welcome.querySelector('.eyebrow').textContent = `${preferences.aiName} · 2.3.2`;
+      welcome.innerHTML = '<div class="welcome-orb" aria-hidden="true">J</div><p class="eyebrow"><span id="welcomeAiName">JARVES AI</span> · V1000</p><h1>Como posso ajudar<br><span>você hoje?</span></h1><p class="welcome-copy">Pergunte, crie, programe ou organize suas ideias. Sua próxima descoberta começa aqui.</p><div class="welcome-chips"><button type="button" data-prompt="Explique como você pode me ajudar.">✦ Conhecer o JARVES</button><button type="button" data-prompt="Ajude-me a criar um projeto de software.">⌘ Criar um projeto</button><button type="button" data-prompt="Analise este código e sugira melhorias.">⌁ Analisar código</button></div>';
+      area.appendChild(welcome);
+      applyPreferences();
       welcome.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => {
         const input = document.getElementById('input');
         input.value = button.dataset.prompt;
         input.focus();
       }));
-      area.appendChild(welcome);
       return;
     }
     for (const m of state.messages) appendMessageBubble(m.role, m.content, m);
@@ -446,6 +460,53 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnSaveAppearance').addEventListener('click', () => {
     if (savePreferences()) document.getElementById('appearanceStatus').textContent = 'Nome, cores e aparência salvos neste dispositivo.';
   });
+  const avatarInput = document.getElementById('aiAvatarInput');
+  avatarInput.addEventListener('change', async () => {
+    const file = avatarInput.files?.[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      document.getElementById('appearanceStatus').textContent = 'Escolha uma imagem PNG, JPG ou WebP de até 5 MB.';
+      avatarInput.value = '';
+      return;
+    }
+    let bitmap;
+    try {
+      bitmap = await createImageBitmap(file);
+      const side = Math.min(bitmap.width, bitmap.height);
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      canvas.getContext('2d').drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, 256, 256);
+      preferences.avatar = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.88);
+      if (savePreferences()) document.getElementById('appearanceStatus').textContent = 'Imagem da IA salva neste dispositivo.';
+    } catch (error) {
+      document.getElementById('appearanceStatus').textContent = `Não foi possível carregar a imagem: ${error.message}`;
+    } finally {
+      bitmap?.close?.();
+      avatarInput.value = '';
+    }
+  });
+  document.getElementById('btnResetAiAvatar').addEventListener('click', () => {
+    preferences.avatar = '';
+    if (savePreferences()) document.getElementById('appearanceStatus').textContent = 'Imagem removida; usando a inicial do nome.';
+  });
+  const launcherIconSelect = document.getElementById('launcherIcon');
+  const launcherIconStatus = document.getElementById('launcherIconStatus');
+  const androidBridge = window.JarvesAndroid;
+  if (androidBridge) {
+    launcherIconSelect.value = androidBridge.getLauncherIcon() === 'robot' ? 'robot' : 'default';
+    launcherIconSelect.addEventListener('change', () => {
+      try {
+        if (androidBridge.setLauncherIcon(launcherIconSelect.value)) launcherIconStatus.textContent = 'Ícone do aplicativo atualizado. A tela inicial pode levar alguns segundos para atualizar.';
+        else launcherIconStatus.textContent = 'Não foi possível alterar o ícone. Feche e abra o aplicativo e tente novamente.';
+      } catch {
+        launcherIconStatus.textContent = 'Falha ao alterar o ícone do aplicativo.';
+      }
+    });
+  } else {
+    launcherIconSelect.disabled = true;
+    launcherIconStatus.textContent = 'A troca do ícone da tela inicial está disponível somente no APK Android.';
+  }
   document.getElementById('speechLanguage').value = preferences.speechLanguage;
   for (const [key, id, outputId] of [['speechRate', 'speechRate', 'speechRateValue'], ['speechPitch', 'speechPitch', 'speechPitchValue']]) {
     const control = document.getElementById(id);

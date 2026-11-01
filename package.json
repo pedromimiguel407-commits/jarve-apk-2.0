@@ -1,6 +1,6 @@
 {
   "name": "jarves-ai",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "description": "JARVES AI multiplataforma com diagnóstico, testes HTML e cliente Android",
   "type": "module",
   "main": "desktop/main.cjs",
@@ -44,10 +44,12 @@
       "backend/**/*",
       "ai/**/*",
       "database/**/*",
+      "executor/**/*",
       "frontend/**/*",
       "package.json"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -64,6 +66,7 @@
       "createStartMenuShortcut": true
     },
     "linux": {
+      "icon": "build/icon.png",
       "target": [
         {
           "target": "AppImage",
