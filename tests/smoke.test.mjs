@@ -35,4 +35,6 @@ test('PWA manifest and HTML test suite are present', () => {
   assert.equal(manifest.name, 'JARVES AI');
   assert.ok(fs.existsSync(path.join(root, 'frontend/scripts/html-tests.js')));
   assert.ok(fs.existsSync(path.join(root, 'frontend/index.html')));
+  const serviceWorker = fs.readFileSync(path.join(root, 'frontend/sw.js'), 'utf8');
+  assert.match(serviceWorker, /scripts\/html-tests\.js/);
 });

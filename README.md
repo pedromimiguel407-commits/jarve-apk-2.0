@@ -36,7 +36,7 @@ O APK é um cliente da interface web. O backend e o provedor IA/Ollama continuam
 
 ## Gerar APK pelo GitHub
 1. Crie um repositório no GitHub e envie todos os arquivos desta pasta.
-2. Abra **Actions** e execute **Build JARVES Android APK** (workflow_dispatch), ou envie alterações Android para `main`.
+2. Abra **Actions** e execute **Build JARVES Android APK** (workflow_dispatch). Pushes com mudanças Android, frontend, backend ou motores de IA também compilam o APK como artefato do workflow.
 3. Baixe `JARVES-AI-2.3.2-Android-APK` na seção Artifacts da execução.
 4. Para publicar o APK em Releases, crie e envie uma tag `v2.3.2`:
    `git tag v2.3.2 && git push origin v2.3.2`
@@ -47,6 +47,7 @@ A página de downloads está em `/download.html` quando o servidor JARVES está 
 - A navegação principal oferece somente **Chat** e **Configurações**, com histórico dentro do chat e atalho para downloads.
 - Em Configurações é possível personalizar nome da IA, cor principal, efeito RGB, tema, voz/idioma e velocidade/tom da síntese de fala disponíveis no navegador. Essas preferências ficam neste dispositivo; síntese e reconhecimento dependem do navegador e das vozes instaladas, não alteram a voz textual do modelo.
 - Configurações reúne testes HTML, diagnóstico do backend e exportação de relatórios TXT/JSON. É possível fornecer um arquivo de texto/código para preparar uma solicitação de análise no Chat. A IA sugere a correção em texto; não executa código nem modifica arquivos automaticamente.
+- O fluxo de criação em Configurações encadeia pesquisa web opcional, geração de plano, confirmação e execução manual de etapas de IA. A pesquisa é desativada por padrão e envia a consulta ao DuckDuckGo quando ativada; o modelo usa o provedor selecionado. Etapas produzem conteúdo/código para revisão, não executam comandos nem compilam aplicativos; blocos HTML podem ser pré-visualizados em iframe isolado.
 - Provedores locais Ollama evitam cobrança por chamada, mas usam hardware local e podem exigir baixar modelos; uma IA remota ou voz não instalada não é tornada gratuita por esta interface.
 
 ## Limites conhecidos

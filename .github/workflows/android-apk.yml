@@ -3,10 +3,18 @@ name: Build JARVES Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: ['**']
     tags: ['v*']
     paths:
       - 'android/**'
+      - 'frontend/**'
+      - 'backend/**'
+      - 'ai/**'
+      - 'database/**'
+      - 'executor/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/android-apk.yml'
 
 permissions:

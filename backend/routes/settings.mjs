@@ -13,7 +13,7 @@ router.get('/', (req, res) => {
   const all = S.getAllSettings();
   // mask secret
   if (all.openai_api_key) all.openai_api_key = '***' + String(all.openai_api_key).slice(-4);
-  res.json({ settings: all, defaults: { ai_provider: env.AI_PROVIDER, ollama_base_url: env.OLLAMA_BASE_URL, ollama_model: env.OLLAMA_MODEL } });
+  res.json({ settings: all, defaults: { ai_provider: env.AI_PROVIDER, ollama_base_url: env.OLLAMA_BASE_URL, ollama_model: env.OLLAMA_MODEL, research_enabled: String(env.RESEARCH_ENABLED) } });
 });
 
 router.get('/:key', (req, res) => {

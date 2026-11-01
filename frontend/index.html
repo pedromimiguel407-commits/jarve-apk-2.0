@@ -72,6 +72,24 @@
         <label>Velocidade da fala <output id="speechRateValue">1×</output><input id="speechRate" type="range" min="0.7" max="1.3" step="0.1" value="1"></label>
         <label>Tom da fala <output id="speechPitchValue">1×</output><input id="speechPitch" type="range" min="0.7" max="1.3" step="0.1" value="1"></label>
       </div><div class="row"><button class="secondary-btn" id="btnTestVoice" type="button">Testar voz</button><span id="voiceStatus" class="status" aria-live="polite"></span></div></div>
+      <div class="panel" id="workflowPanel">
+        <h3>Fluxo de criação: pesquisar, planejar e executar</h3>
+        <p class="muted-copy">A pesquisa web é opcional e envia a consulta ao DuckDuckGo. A IA usa o provedor selecionado para planejar; provedores remotos podem cobrar, então escolha Ollama para evitar cobrança por chamada. Revise e confirme antes de executar: as etapas geram respostas/código como texto, não rodam programas nem criam APK/EXE.</p>
+        <label for="workflowGoal">O que você quer pesquisar e construir?</label>
+        <textarea id="workflowGoal" maxlength="4000" placeholder="Descreva o objetivo ou projeto (até 4.000 caracteres)."></textarea>
+        <div class="row">
+          <button class="secondary-btn" id="btnWorkflowResearch" type="button">1 · Pesquisar na web</button>
+          <button class="secondary-btn" id="btnWorkflowPlan" type="button" disabled>2 · Criar plano</button>
+          <button class="primary-btn" id="btnWorkflowCreate" type="button" disabled>Confirmar plano</button>
+          <button class="primary-btn" id="btnWorkflowExecute" type="button" disabled>3 · Executar etapas de IA</button>
+        </div>
+        <div id="workflowStatus" class="status" aria-live="polite">Ative “Pesquisa web” nas configurações de IA para liberar a etapa de pesquisa.</div>
+        <div id="workflowSources" class="list"></div>
+        <ol id="workflowPlan" class="list"></ol>
+        <pre id="workflowResult" class="result-box"></pre>
+        <button class="secondary-btn" id="btnWorkflowPreview" type="button" disabled>Pré-visualizar HTML em sandbox</button>
+        <iframe id="workflowPreview" title="Pré-visualização isolada do HTML gerado" sandbox="allow-scripts" hidden></iframe>
+      </div>
       <div class="panel html-test-panel">
         <div class="row html-test-toolbar"><div><h3>Testes HTML e diagnóstico</h3><p class="muted-copy">Verifique interface, navegador, armazenamento e conexão. Rode novamente quando precisar.</p></div><span id="htmlTestProgress" class="html-test-progress">0%</span></div>
         <div id="htmlTestSummary" class="status" aria-live="polite">Os testes ainda não foram executados.</div>

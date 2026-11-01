@@ -13,7 +13,7 @@ test('frontend index exists and has key controls', () => {
   const navigation = html.match(/<nav class="tool-nav primary-nav"[\s\S]*?<\/nav>/)?.[0] || '';
   assert.deepEqual([...navigation.matchAll(/data-view="([^"]+)"/g)].map(match => match[1]), ['chat', 'settings']);
   assert.match(navigation, /href="\/download\.html"/);
-  for (const id of ['aiDisplayName','accentColor','rgbMode','speechLanguage','speechVoice','speechRate','speechPitch','btnTestVoice','btnRunHtmlTests','btnRunDiag','repairInput','repairFile','btnAskFix']) {
+  for (const id of ['aiDisplayName','accentColor','rgbMode','speechLanguage','speechVoice','speechRate','speechPitch','btnTestVoice','btnRunHtmlTests','btnRunDiag','repairInput','repairFile','btnAskFix','workflowGoal','btnWorkflowResearch','btnWorkflowPlan','btnWorkflowCreate','btnWorkflowExecute','btnWorkflowPreview','workflowPreview']) {
     assert.ok(html.includes(`id="${id}"`), 'missing preference/diagnostic control ' + id);
   }
 });

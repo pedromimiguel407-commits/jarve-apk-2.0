@@ -1,5 +1,5 @@
 const CACHE = 'jarves-ai-2.3.2';
-const CORE = ['./', './index.html', './manifest.json', './styles/main.css', './scripts/api.js', './scripts/state.js', './scripts/ui.js', './scripts/particles.js', './scripts/app.js', './scripts/base-engine.js', './scripts/gerador.js', './assets/icon-192.png', './assets/icon-512.png'];
+const CORE = ['./', './index.html', './manifest.json', './styles/main.css', './scripts/api.js', './scripts/state.js', './scripts/ui.js', './scripts/particles.js', './scripts/app.js', './scripts/base-engine.js', './scripts/gerador.js', './scripts/html-tests.js', './assets/icon-192.png', './assets/icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)).catch(() => {}));
   self.skipWaiting();

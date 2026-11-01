@@ -79,4 +79,13 @@
 .html-test-body small { color: var(--muted, #9aa8bd); overflow-wrap: anywhere; }
 #htmlTestSummary[data-status="success"] { color: #38c985; }
 #htmlTestSummary[data-status="warning"] { color: #ffb454; }
+#workflowPlan { padding-left: 24px; }
+#workflowPlan li { padding-left: 4px; line-height: 1.55; }
+#workflowSources .list-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); }
+#workflowSources .title { font-weight: 600; }
+#workflowSources .meta { margin-top: 5px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+#workflowSources a { flex: 0 0 auto; color: var(--accent2); font-size: 12px; }
+#workflowPreview { display: block; width: 100%; min-height: 360px; margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; background: white; }
+#workflowPreview[hidden] { display: none; }
+.primary-btn:disabled,.secondary-btn:disabled { opacity: .55; cursor: not-allowed; }
 @media (max-width: 640px) { .html-test-toolbar { align-items: flex-start; } .html-test-toolbar h3 { margin-bottom: 4px; } }
