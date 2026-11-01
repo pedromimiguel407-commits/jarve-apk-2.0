@@ -20,8 +20,6 @@
     .status{font-size:13px;color:#b8c5dd}
     .status[data-state="error"]{color:#ffb4bc}
     .secondary{color:#8e9cff;font-size:13px}
-    footer{margin-top:26px;padding-top:16px;border-top:1px solid #293754;font-size:12px;color:#91a0bb}
-    footer a{color:#8e9cff}
     @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
   </style>
 </head>
@@ -46,9 +44,13 @@
       <p class="status">O instalador não tem assinatura de código; o Windows pode mostrar um aviso do SmartScreen.</p>
     </section>
 
-    <footer>
-      <a href="https://github.com/pedromimiguel407-commits/jarve-apk-2.0" target="_blank" rel="noopener noreferrer">Código-fonte e instruções ↗</a>
-    </footer>
+    <section class="download-card" aria-labelledby="linux-title">
+      <h2 id="linux-title">Linux · AppImage</h2>
+      <p id="linuxReleaseDetails" class="status" role="status" aria-live="polite">Consultando releases publicados…</p>
+      <a id="linuxDownload" class="button" hidden>Baixar AppImage</a>
+      <p class="status">Pacote x86_64. Pode ser necessário permitir a execução do arquivo nas propriedades do sistema.</p>
+    </section>
+
   </main>
   <script>
     const repository = 'pedromimiguel407-commits/jarve-apk-2.0';
@@ -56,6 +58,8 @@
     const download = document.getElementById('apkDownload');
     const exeStatus = document.getElementById('exeReleaseDetails');
     const exeDownload = document.getElementById('exeDownload');
+    const linuxStatus = document.getElementById('linuxReleaseDetails');
+    const linuxDownload = document.getElementById('linuxDownload');
     const releasesLink = document.getElementById('allReleases');
     releasesLink.href = `https://github.com/${repository}/releases`;
     function showDownload(asset, link) {
@@ -78,6 +82,7 @@
     }).then(release => {
       const apk = (release.assets || []).find(asset => asset.name === 'app-debug.apk' && typeof asset.browser_download_url === 'string');
       const exe = (release.assets || []).find(asset => /^JARVES-AI-Setup-.+-x64\.exe$/i.test(asset.name) && typeof asset.browser_download_url === 'string');
+      const appImage = (release.assets || []).find(asset => /^JARVES-AI-.+-x86_64\.AppImage$/i.test(asset.name) && typeof asset.browser_download_url === 'string');
       const publishedDate = release.published_at ? new Date(release.published_at).toLocaleDateString('pt-BR') : 'data indisponível';
       const versionLabel = `Versão ${release.tag_name} · ${publishedDate}`;
       status.textContent = showDownload(apk, download)
@@ -86,11 +91,16 @@
       exeStatus.textContent = showDownload(exe, exeDownload)
         ? `${versionLabel} · instalador disponível.`
         : `${versionLabel} · este release ainda não tem instalador Windows.`;
+      linuxStatus.textContent = showDownload(appImage, linuxDownload)
+        ? `${versionLabel} · AppImage disponível.`
+        : `${versionLabel} · este release ainda não tem AppImage.`;
     }).catch(error => {
       status.dataset.state = 'error';
       status.textContent = `${error.message} Execute o workflow de APK e publique uma tag v* para disponibilizar o download.`;
       exeStatus.dataset.state = 'error';
       exeStatus.textContent = 'Nenhum instalador publicado em um Release.';
+      linuxStatus.dataset.state = 'error';
+      linuxStatus.textContent = 'Nenhum AppImage publicado em um Release.';
     });
   </script>
 </body>

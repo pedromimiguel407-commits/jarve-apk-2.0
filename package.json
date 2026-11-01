@@ -4,6 +4,7 @@
   "description": "JARVES AI multiplataforma com diagnóstico, testes HTML e cliente Android",
   "type": "module",
   "main": "desktop/main.cjs",
+  "desktopName": "JARVES AI",
   "engines": {
     "node": ">=22.13.0"
   },
@@ -26,6 +27,7 @@
     "start": "node backend/server.mjs",
     "desktop": "electron .",
     "build:windows": "electron-builder --win nsis --x64 --publish never",
+    "build:linux": "electron-builder --linux AppImage --x64 --publish never",
     "check": "node scripts/check.mjs",
     "lint": "node scripts/check.mjs",
     "test": "node --test"
@@ -60,6 +62,17 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ],
+      "category": "Utility",
+      "syncDesktopName": true,
+      "artifactName": "JARVES-AI-${version}-${arch}.${ext}"
     }
   },
   "devDependencies": {

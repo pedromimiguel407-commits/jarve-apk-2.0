@@ -18,14 +18,25 @@ test('frontend index exists and has key controls', () => {
   }
 });
 
-test('download page only enables APK and EXE downloads from a published GitHub release', () => {
+test('download page only enables APK, EXE, and AppImage downloads from a published GitHub release', () => {
   const html = fs.readFileSync(path.join(root, 'frontend/download.html'), 'utf8');
   assert.match(html, /const repository = 'pedromimiguel407-commits\/jarve-apk-2\.0'/);
   assert.match(html, /api\.github\.com\/repos\/\$\{repository\}\/releases\/latest/);
   assert.match(html, /asset\.name === 'app-debug\.apk'/);
   assert.match(html, /exeDownload/);
   assert.match(html, /JARVES-AI-Setup-.*x64\\\.exe/);
+  assert.match(html, /JARVES-AI-.+-x86_64\\\.AppImage/);
+  assert.match(html, /linuxDownload/);
   assert.match(html, /link\.hidden = false/);
+});
+
+test('Linux packaging builds only an x64 AppImage and uploads it from CI', () => {
+  const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const workflow = fs.readFileSync(path.join(root, '.github/workflows/linux-appimage.yml'), 'utf8');
+  assert.match(packageJson.scripts['build:linux'], /--linux AppImage --x64/);
+  assert.deepEqual(packageJson.build.linux.target, [{ target: 'AppImage', arch: ['x64'] }]);
+  assert.match(workflow, /npm run build:linux/);
+  assert.match(workflow, /dist\/\*\.AppImage/);
 });
 
 test('GitHub Pages workflow publishes the downloads page as the site root', () => {
