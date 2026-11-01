@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.net.Uri;
 import android.net.nsd.NsdManager;
 import android.net.nsd.NsdServiceInfo;
@@ -69,24 +70,27 @@ public class MainActivity extends Activity {
     private boolean serverUrlLoadPending;
     private boolean networkCallbackRegistered;
     private Network activeWifiNetwork;
+    private String pendingServerUrl = "";
+    private String serverErrorMessage = "";
     private final ConnectivityManager.NetworkCallback wifiNetworkCallback = new ConnectivityManager.NetworkCallback() {
         @Override public void onAvailable(Network network) {
             NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
             if (capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-                activeWifiNetwork = network;
-                mainHandler.post(() -> {
-                    if (!serverConnected && !serverUrlLoadPending) startDiscovery();
-                });
+                mainHandler.post(() -> connectToWifiNetwork(network));
             }
         }
         @Override public void onLost(Network network) {
             if (network.equals(activeWifiNetwork)) {
-                activeWifiNetwork = null;
                 mainHandler.post(() -> {
+                    activeWifiNetwork = null;
+                    connectivityManager.bindProcessToNetwork(null);
                     serverConnected = false;
+                    serverUrlLoadPending = false;
                     loading.setVisibility(View.VISIBLE);
                     loading.setText("Wi-Fi desconectado · aguardando a rede para procurar JARVES...");
                     stopDiscovery();
+                    Network replacement = findWifiNetwork();
+                    if (replacement != null) connectToWifiNetwork(replacement);
                 });
             }
         }
@@ -102,16 +106,21 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(0xFF080D1A);
         getWindow().setNavigationBarColor(0xFF080D1A);
         buildUi();
-        String saved = getPreferences(MODE_PRIVATE).getString(KEY_URL, "");
-        if (saved.isEmpty()) startDiscovery();
-        else loadServer(saved);
+        pendingServerUrl = getPreferences(MODE_PRIVATE).getString(KEY_URL, "");
+        loading.setText("Aguardando conexão Wi-Fi...");
     }
 
     @Override protected void onStart() {
         super.onStart();
         try {
-            connectivityManager.registerDefaultNetworkCallback(wifiNetworkCallback);
+            NetworkRequest wifiRequest = new NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .build();
+            connectivityManager.registerNetworkCallback(wifiRequest, wifiNetworkCallback);
             networkCallbackRegistered = true;
+            Network network = findWifiNetwork();
+            if (network != null) connectToWifiNetwork(network);
+            else loading.setText("Conecte o Android à rede Wi-Fi do computador para localizar o JARVES.");
         } catch (RuntimeException error) {
             Log.e("JARVES", "Não foi possível acompanhar a conexão Wi-Fi.", error);
         }
@@ -127,6 +136,8 @@ public class MainActivity extends Activity {
             networkCallbackRegistered = false;
         }
         stopDiscovery();
+        connectivityManager.bindProcessToNetwork(null);
+        activeWifiNetwork = null;
         serverConnected = false;
         serverUrlLoadPending = false;
         super.onStop();
@@ -193,7 +204,13 @@ public class MainActivity extends Activity {
                     serverUrlLoadPending = false;
                     serverConnected = false;
                     loading.setVisibility(View.VISIBLE);
-                    loading.setText("Servidor indisponível · procurando JARVES na rede Wi-Fi...");
+                    int errorCode = error.getErrorCode();
+                    String description = error.getDescription() == null ? "erro de rede" : error.getDescription().toString();
+                    String failedUrl = pendingServerUrl.isEmpty() ? serverOrigin : pendingServerUrl;
+                    serverErrorMessage = "Não foi possível abrir o servidor"
+                        + (failedUrl.isEmpty() ? "" : " " + failedUrl)
+                        + " (" + errorCode + ": " + description + "). Confira se o servidor está ligado, se os dois aparelhos estão na mesma Wi-Fi e se a porta está liberada no firewall.";
+                    loading.setText("Servidor indisponível · procurando novamente na rede Wi-Fi...");
                     startDiscovery();
                 }
             }
@@ -230,14 +247,18 @@ public class MainActivity extends Activity {
         final EditText input = new EditText(this);
         input.setSingleLine(true);
         input.setHint("http://192.168.1.10:3000");
-        input.setText(getPreferences(MODE_PRIVATE).getString(KEY_URL, ""));
+        input.setText(pendingServerUrl.isEmpty()
+            ? getPreferences(MODE_PRIVATE).getString(KEY_URL, "")
+            : pendingServerUrl);
         input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
         LinearLayout box = new LinearLayout(this);
         box.setPadding(24, 8, 24, 0);
         box.addView(input);
         AlertDialog dialog = new AlertDialog.Builder(this)
             .setTitle("Conectar ao JARVES AI")
-            .setMessage("Não encontrei um servidor JARVES na rede Wi-Fi. Inicie o JARVES no computador na mesma rede ou informe o endereço do servidor.")
+            .setMessage(serverErrorMessage.isEmpty()
+                ? "Não encontrei um servidor JARVES na rede Wi-Fi. Inicie o JARVES no computador na mesma rede ou informe o endereço do servidor."
+                : serverErrorMessage)
             .setView(box)
             .setCancelable(false)
             .setPositiveButton("Conectar", (d, w) -> {
@@ -249,7 +270,8 @@ public class MainActivity extends Activity {
                     });
                     return;
                 }
-                loadServer(value);
+                pendingServerUrl = value.replaceAll("/+$", "");
+                verifyManualServer(pendingServerUrl);
             })
             .setNeutralButton("Procurar novamente", (d, w) -> startDiscovery())
             .setNegativeButton("Sair", (d, w) -> finish())
@@ -259,6 +281,52 @@ public class MainActivity extends Activity {
             if (serverDialog == dialog) serverDialog = null;
         });
         dialog.show();
+    }
+
+    private Network findWifiNetwork() {
+        for (Network network : connectivityManager.getAllNetworks()) {
+            NetworkCapabilities capabilities = connectivityManager.getNetworkCapabilities(network);
+            if (capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return network;
+        }
+        return null;
+    }
+
+    private void connectToWifiNetwork(Network network) {
+        if (isFinishing() || network.equals(activeWifiNetwork)) return;
+        activeWifiNetwork = network;
+        if (!connectivityManager.bindProcessToNetwork(network)) {
+            Log.w("JARVES", "Não foi possível associar o app à rede Wi-Fi ativa.");
+        }
+        if (!pendingServerUrl.isEmpty()) verifyManualServer(pendingServerUrl);
+        else if (!serverConnected && !serverUrlLoadPending) startDiscovery();
+    }
+
+    private void verifyManualServer(String serverUrl) {
+        loading.setVisibility(View.VISIBLE);
+        loading.setText("Verificando o servidor " + serverUrl + "...");
+        final Network network = activeWifiNetwork;
+        new Thread(() -> {
+            String error;
+            try {
+                error = checkServerHealth(serverUrl, network);
+            } catch (Exception exception) {
+                error = exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
+            }
+            final String result = error;
+            mainHandler.post(() -> {
+                if (isFinishing()) return;
+                if (result == null) {
+                    serverErrorMessage = "";
+                    pendingServerUrl = "";
+                    loadServer(serverUrl);
+                } else {
+                    serverErrorMessage = "Não consegui validar " + serverUrl + ": " + result
+                        + ". Confirme o endereço, a porta 3000, a rede Wi-Fi e o firewall do computador.";
+                    loading.setText("Servidor não respondeu · confira o endereço e tente novamente.");
+                    showServerDialog();
+                }
+            });
+        }, "jarves-manual-server-check").start();
     }
 
     private void loadServer(String value) {
@@ -371,46 +439,61 @@ public class MainActivity extends Activity {
     }
 
     private void verifyJarvesServer(String serverUrl, int generation) {
+        final Network network = activeWifiNetwork;
         new Thread(() -> {
-            HttpURLConnection connection = null;
-            boolean isJarves = false;
+            boolean isJarves;
             try {
-                connection = (HttpURLConnection) new URL(serverUrl + "/api/health").openConnection();
-                connection.setRequestMethod("GET");
-                connection.setConnectTimeout(3000);
-                connection.setReadTimeout(3000);
-                connection.setInstanceFollowRedirects(false);
-                if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
-                    try (InputStream input = connection.getInputStream();
-                         ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-                        byte[] buffer = new byte[1024];
-                        int total = 0;
-                        int count;
-                        while ((count = input.read(buffer)) != -1) {
-                            total += count;
-                            if (total > 8192) break;
-                            output.write(buffer, 0, count);
-                        }
-                        JSONObject health = new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
-                        isJarves = total <= 8192
-                            && "ok".equals(health.optString("status"))
-                            && !health.optString("version").isEmpty();
-                    }
-                }
+                isJarves = checkServerHealth(serverUrl, network) == null;
             } catch (Exception error) {
                 Log.w("JARVES", "Servidor anunciado não respondeu à verificação de saúde: " + serverUrl, error);
-            } finally {
-                if (connection != null) connection.disconnect();
+                isJarves = false;
             }
             if (isJarves) {
                 mainHandler.post(() -> {
                     if (generation != discoveryGeneration || serverConnected) return;
                     stopDiscovery();
+                    pendingServerUrl = "";
+                    serverErrorMessage = "";
                     loading.setText("Servidor JARVES encontrado · conectando...");
                     loadServer(serverUrl);
                 });
             }
         }, "jarves-server-check").start();
+    }
+
+    private String checkServerHealth(String serverUrl, Network network) throws Exception {
+        URL healthUrl = new URL(serverUrl + "/api/health");
+        java.net.URLConnection rawConnection = network == null
+            ? healthUrl.openConnection()
+            : network.openConnection(healthUrl);
+        if (!(rawConnection instanceof HttpURLConnection)) return "o endereço não usa HTTP";
+        HttpURLConnection connection = (HttpURLConnection) rawConnection;
+        try {
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(4000);
+            connection.setReadTimeout(4000);
+            connection.setInstanceFollowRedirects(false);
+            int responseCode = connection.getResponseCode();
+            if (responseCode != HttpURLConnection.HTTP_OK) return "a API respondeu HTTP " + responseCode;
+            try (InputStream input = connection.getInputStream();
+                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                byte[] buffer = new byte[1024];
+                int total = 0;
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    total += count;
+                    if (total > 8192) return "a resposta de saúde é grande demais";
+                    output.write(buffer, 0, count);
+                }
+                JSONObject health = new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
+                if (!"ok".equals(health.optString("status")) || health.optString("version").isEmpty()) {
+                    return "o endereço respondeu, mas não parece ser um servidor JARVES";
+                }
+                return null;
+            }
+        } finally {
+            connection.disconnect();
+        }
     }
 
     private void stopDiscovery() {

@@ -1,16 +1,8 @@
 /* Gerador local: cria SVG, malhas 3D e projetos HTML; Ollama opcional roda no dispositivo/servidor do usuário. */
 (function () {
   'use strict';
-  const nav = document.querySelector('.tool-nav');
   const main = document.querySelector('.main');
-  if (!nav || !main) return;
-
-  // ---- botao no menu e secao ----
-  const btn = document.createElement('button');
-  btn.className = 'nav-btn'; btn.dataset.view = 'gerador';
-  btn.innerHTML = '<span>✦</span> Gerador';
-  nav.insertBefore(btn, nav.firstChild);
-  btn.addEventListener('click', () => { window.jarvesSetView?.('gerador'); document.getElementById('overlay')?.click(); });
+  if (!main) return;
 
   const sec = document.createElement('section');
   sec.className = 'view content-view'; sec.id = 'view-gerador'; sec.hidden = true;
