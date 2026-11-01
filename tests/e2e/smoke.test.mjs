@@ -66,9 +66,9 @@ test('Android launcher icons target the declared activity and expose only packag
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const androidBuild = fs.readFileSync(path.join(root, 'android/app/build.gradle'), 'utf8');
   const environment = fs.readFileSync(path.join(root, 'backend/config/env.mjs'), 'utf8');
-  assert.equal(packageJson.version, '2.3.4');
-  assert.match(androidBuild, /versionCode 234[\s\S]*versionName '2\.3\.4'/);
-  assert.match(environment, /APP_VERSION = '2\.3\.4'/);
+  assert.equal(packageJson.version, '2.3.5');
+  assert.match(androidBuild, /versionCode 235[\s\S]*versionName '2\.3\.5'/);
+  assert.match(environment, /APP_VERSION = '2\.3\.5'/);
   const manifest = fs.readFileSync(path.join(root, 'android/app/src/main/AndroidManifest.xml'), 'utf8');
   for (const permission of ['INTERNET', 'ACCESS_NETWORK_STATE', 'ACCESS_WIFI_STATE', 'CHANGE_NETWORK_STATE', 'CHANGE_WIFI_MULTICAST_STATE']) {
     assert.match(manifest, new RegExp(`android:name="android\\.permission\\.${permission}"`));
