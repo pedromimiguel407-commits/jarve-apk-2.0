@@ -7,7 +7,7 @@ Repositorio-fonte preparado a partir do pacote Windows enviado.
 - Relatório técnico de auditoria em TXT e JSON.
 - Testes smoke e verificação de sintaxe JavaScript.
 - Cliente Android WebView em `android/`.
-- GitHub Actions para compilar e publicar o APK como artefato; tags `v*` também criam anexo em GitHub Releases.
+- GitHub Actions compilam APK, EXE e AppImage como artefatos. Ao enviar uma tag `v*`, os três arquivos são anexados à Release correspondente no GitHub.
 
 ## Executar o servidor
 Requisitos: Node.js 22.13 ou superior.
@@ -42,16 +42,16 @@ A descoberta usa mDNS (`_jarves._tcp`) e só é anunciada quando o backend escut
 4. Para publicar o APK em Releases, crie e envie uma tag `v2.3.6`:
    `git tag v2.3.6 && git push origin v2.3.6`
 
-A página de downloads está em `/download.html` quando o servidor JARVES está em execução. O workflow **Publish JARVES downloads site** publica a mesma página como site estático no GitHub Pages e a atualiza em pushes para `main`. Ela consulta o release mais recente e só mostra botões quando encontra os assets reais `app-debug.apk`, `JARVES-AI-Setup-<versão>-x64.exe` e `JARVES-AI-<versão>-x64.AppImage`. Artefatos de Actions não são anexados automaticamente a um Release. O APK atual é uma compilação de depuração; o EXE não é assinado.
+A página de downloads está em `/download.html` quando o servidor JARVES está em execução. O workflow **Publish JARVES downloads site** publica a mesma página como site estático no GitHub Pages e a atualiza em pushes para `main`. Ela consulta o release mais recente e só mostra botões quando encontra os assets reais `app-debug.apk`, `JARVES-AI-Setup-<versão>-x64.exe` e `JARVES-AI-<versão>-x86_64.AppImage`. Os workflows de Android, Windows e Linux anexam seus instaladores à Release quando uma tag `v*` é enviada. O APK é uma compilação de depuração; o EXE não é assinado.
 
 ## Gerar instalador Windows
 - Execute `npm ci` e `npm run build:windows` em Windows com Node.js 22.13+. O instalador NSIS será criado em `dist/`.
-- O workflow **Build JARVES Windows EXE** compila o instalador em cada push que altera o app e o publica como artefato do Actions (não como Release).
+- O workflow **Build JARVES Windows EXE** compila o instalador em cada push que altera o app e o publica como artefato do Actions; tags `v*` também o anexam à Release correspondente.
 - O instalador ainda não tem assinatura de código; o Windows pode mostrar avisos do SmartScreen.
 
 ## Gerar AppImage para Linux
 - Requer Node.js 22.13+; execute `npm ci` e `npm run build:linux` para criar `dist/JARVES-AI-2.3.6-x86_64.AppImage`.
-- O workflow **Build JARVES Linux AppImage** gera o mesmo pacote x86_64 e publica-o como artefato do Actions. Para aparecer no site, publique o `.AppImage` como asset de um GitHub Release.
+- O workflow **Build JARVES Linux AppImage** gera o mesmo pacote x86_64, publica-o como artefato do Actions e o anexa à Release nas tags `v*`.
 - Os pacotes Electron incluem o diretório `executor/`, usado pelo provedor de IA, e usam ícones de aplicativo específicos para Linux e Windows. O APK inclui ícones de launcher em todas as densidades Android.
 
 ## Interface, voz e correção assistida

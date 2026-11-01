@@ -56,6 +56,7 @@ test('download page only enables APK, EXE, and AppImage downloads from a publish
 test('Linux packaging builds only an x64 AppImage and uploads it from CI', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const workflow = fs.readFileSync(path.join(root, '.github/workflows/linux-appimage.yml'), 'utf8');
+  const windowsWorkflow = fs.readFileSync(path.join(root, '.github/workflows/windows-exe.yml'), 'utf8');
   assert.match(packageJson.scripts['build:linux'], /--linux AppImage --x64/);
   assert.deepEqual(packageJson.build.linux.target, [{ target: 'AppImage', arch: ['x64'] }]);
   assert.ok(packageJson.build.files.includes('executor/**/*'));
@@ -74,6 +75,11 @@ test('Linux packaging builds only an x64 AppImage and uploads it from CI', () =>
   assert.match(appScript, /500_000/);
   assert.match(workflow, /npm run build:linux/);
   assert.match(workflow, /dist\/\*\.AppImage/);
+  for (const releaseWorkflow of [workflow, windowsWorkflow]) {
+    assert.match(releaseWorkflow, /tags: \['v\*'\]/);
+    assert.match(releaseWorkflow, /softprops\/action-gh-release@v2/);
+    assert.match(releaseWorkflow, /fail_on_unmatched_files: true/);
+  }
 });
 
 test('Android launcher icons target the declared activity and expose only packaged choices', () => {
