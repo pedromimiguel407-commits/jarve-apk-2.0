@@ -205,7 +205,7 @@ public class MainActivity extends Activity {
                     serverConnected = false;
                     loading.setVisibility(View.VISIBLE);
                     int errorCode = error.getErrorCode();
-                    String description = error.getDescription() == null ? "erro de rede" : error.getDescription();
+                    String description = error.getDescription() == null ? "erro de rede" : error.getDescription().toString();
                     String failedUrl = pendingServerUrl.isEmpty() ? serverOrigin : pendingServerUrl;
                     serverErrorMessage = "Não foi possível abrir o servidor"
                         + (failedUrl.isEmpty() ? "" : " " + failedUrl)
