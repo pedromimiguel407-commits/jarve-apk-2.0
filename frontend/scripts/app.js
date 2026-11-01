@@ -50,6 +50,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // View switching
   function setView(v) {
+    const previousView = state.view;
+    if (previousView === 'voice-studio' && v !== 'voice-studio') {
+      window.speechSynthesis?.cancel();
+      document.getElementById('studioVideo').pause();
+    }
     state.view = v;
     document.querySelectorAll('.view').forEach(el => { el.hidden = (el.id !== 'view-' + v); });
     document.getElementById('historyTools').hidden = v !== 'chat';
@@ -57,8 +62,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('modelSelect').hidden = v !== 'chat';
     document.getElementById('btnClear').hidden = v !== 'chat';
     document.getElementById('btnExport').hidden = v !== 'chat';
-    document.getElementById('btnTheme').hidden = v === 'settings';
+    document.getElementById('btnTheme').hidden = v !== 'chat';
     if (v === 'settings') document.getElementById('convTitle').textContent = 'Configurações';
+    else if (v === 'voice-studio') document.getElementById('convTitle').textContent = 'Voz e vídeo';
     else if (state.currentConversationId !== null) {
       const current = state.conversations.find(conversation => conversation.id === state.currentConversationId);
       document.getElementById('convTitle').textContent = current?.title || 'Conversa';
@@ -369,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.speakText = (text) => {
     if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
       toast('A síntese de voz não é suportada neste navegador.', 'error');
-      return;
+      return false;
     }
     const u = new SpeechSynthesisUtterance(text);
     u.lang = preferences.speechLanguage;
@@ -378,7 +384,9 @@ document.addEventListener('DOMContentLoaded', () => {
     u.volume = 1;
     const voice = window.speechSynthesis.getVoices().find(item => item.name === preferences.speechVoice);
     if (voice) u.voice = voice;
+    window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
+    return true;
   };
 
   document.getElementById('btnNewChat').addEventListener('click', () => {
@@ -535,7 +543,89 @@ document.addEventListener('DOMContentLoaded', () => {
     input.focus();
     document.getElementById('repairStatus').textContent = 'Análise preparada no Chat. Revise o texto e envie quando estiver pronto.';
   });
-
+  const studioNarration = document.getElementById('studioNarration');
+  const studioVideo = document.getElementById('studioVideo');
+  let studioVideoUrl = null;
+  document.getElementById('btnSpeakNarration').addEventListener('click', () => {
+    const text = studioNarration.value.trim();
+    if (!text) {
+      document.getElementById('studioVoiceStatus').textContent = 'Escreva o texto da narração primeiro.';
+      return;
+    }
+    const started = window.speakText(text);
+    document.getElementById('studioVoiceStatus').textContent = started
+      ? 'Narração iniciada com as preferências atuais do dispositivo.'
+      : 'Síntese de voz indisponível neste navegador.';
+  });
+  document.getElementById('btnPlayAndSpeak').addEventListener('click', async () => {
+    const text = studioNarration.value.trim();
+    if (!text) {
+      document.getElementById('studioVoiceStatus').textContent = 'Escreva o texto da narração primeiro.';
+      return;
+    }
+    if (!studioVideo.src) {
+      document.getElementById('studioVideoStatus').textContent = 'Escolha um vídeo local antes de reproduzir.';
+      return;
+    }
+    try {
+      await studioVideo.play();
+      window.speechSynthesis?.cancel();
+      if (!window.speakText(text)) {
+        studioVideo.pause();
+        document.getElementById('studioVoiceStatus').textContent = 'Síntese de voz indisponível; vídeo pausado.';
+        return;
+      }
+      document.getElementById('studioVoiceStatus').textContent = 'Vídeo e narração estão sendo reproduzidos neste dispositivo; a voz não é gravada no arquivo.';
+    } catch (error) {
+      document.getElementById('studioVideoStatus').textContent = `Não foi possível reproduzir o vídeo: ${error.message}`;
+    }
+  });
+  document.getElementById('btnStopStudio').addEventListener('click', () => {
+    window.speechSynthesis?.cancel();
+    studioVideo.pause();
+    document.getElementById('studioVoiceStatus').textContent = 'Reprodução interrompida.';
+  });
+  document.getElementById('btnExportNarration').addEventListener('click', () => {
+    const text = studioNarration.value.trim();
+    if (!text) {
+      document.getElementById('studioVoiceStatus').textContent = 'Não há texto para exportar.';
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'jarves-narracao.txt';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    document.getElementById('studioVoiceStatus').textContent = 'Texto da narração exportado como TXT.';
+  });
+  document.getElementById('studioVideoFile').addEventListener('change', event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 250 * 1024 * 1024) {
+      document.getElementById('studioVideoStatus').textContent = 'O vídeo excede o limite de 250 MB.';
+      event.target.value = '';
+      return;
+    }
+    if (!/\.(mp4|webm|mov|m4v)$/i.test(file.name)) {
+      document.getElementById('studioVideoStatus').textContent = 'Formato não permitido. Use MP4, WebM, MOV ou M4V.';
+      event.target.value = '';
+      return;
+    }
+    if (studioVideoUrl) URL.revokeObjectURL(studioVideoUrl);
+    studioVideoUrl = URL.createObjectURL(file);
+    studioVideo.src = studioVideoUrl;
+    studioVideo.hidden = false;
+    studioVideo.load();
+    document.getElementById('studioVideoStatus').textContent = `Vídeo local carregado: ${file.name}. A compatibilidade depende do dispositivo.`;
+  });
+  studioVideo.addEventListener('error', () => {
+    document.getElementById('studioVideoStatus').textContent = 'O navegador não conseguiu reproduzir este vídeo. Tente MP4 ou WebM.';
+  });
+  window.addEventListener('beforeunload', () => {
+    window.speechSynthesis?.cancel();
+    if (studioVideoUrl) URL.revokeObjectURL(studioVideoUrl);
+  });
   // Models
   async function loadModels() {
     try {

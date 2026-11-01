@@ -21,6 +21,7 @@
     </div>
     <nav class="tool-nav primary-nav" aria-label="Navegação principal">
       <button class="nav-btn active" data-view="chat" type="button"><span>✧</span> Chat</button>
+      <button class="nav-btn" data-view="voice-studio" type="button"><span>♫</span> Voz e vídeo</button>
       <button class="nav-btn" data-view="settings" type="button"><span>⚙</span> Configurações</button>
       <a class="nav-btn" href="/download.html"><span>⇩</span> Baixar aplicativo</a>
     </nav>
@@ -52,6 +53,25 @@
         <textarea id="input" placeholder="Envie uma mensagem ao JARVES..." rows="1" aria-label="Mensagem"></textarea>
         <div class="composer-tools"><span class="composer-hint">Enter para enviar · Shift + Enter para nova linha</span><div class="composer-actions"><button class="secondary-btn" id="btnVoice" type="button">◖ Voz</button><button class="danger-btn" id="btnStop" type="button" disabled>Parar</button><button class="send-btn" id="btnSend" type="button" aria-label="Enviar mensagem">↑</button></div></div>
       </div><div class="status-bar" id="statusBar">A IA pode cometer erros. Verifique informações importantes.</div></div>
+    </section>
+    <section class="view content-view" id="view-voice-studio" hidden>
+      <div class="page-heading"><p class="eyebrow">ESTÚDIO LOCAL</p><h1>Voz e vídeo</h1><p>Use a voz instalada no dispositivo e visualize um vídeo local, sem enviar o arquivo ao servidor.</p></div>
+      <div class="panel">
+        <h3>Texto da narração</h3>
+        <p class="muted-copy">A voz, o idioma, o tom e a velocidade usam as preferências de Configurações. A disponibilidade e o modo offline dependem do navegador e da voz instalada.</p>
+        <label for="studioNarration">Texto para falar</label>
+        <textarea id="studioNarration" maxlength="12000" placeholder="Escreva ou cole o texto da narração (até 12.000 caracteres)."></textarea>
+        <div class="row"><button class="primary-btn" id="btnSpeakNarration" type="button">Falar texto</button><button class="secondary-btn" id="btnPlayAndSpeak" type="button">Reproduzir vídeo e falar</button><button class="secondary-btn" id="btnStopStudio" type="button">Parar voz/vídeo</button><button class="secondary-btn" id="btnExportNarration" type="button">Exportar texto TXT</button></div>
+        <div id="studioVoiceStatus" class="status" aria-live="polite"></div>
+      </div>
+      <div class="panel">
+        <h3>Pré-visualizar vídeo local</h3>
+        <p class="muted-copy">O arquivo fica no dispositivo e não é enviado. Esta prévia não mistura nem exporta a voz dentro do arquivo de vídeo.</p>
+        <label for="studioVideoFile">Escolher vídeo (máx. 250 MB)</label>
+        <input id="studioVideoFile" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-m4v,.mp4,.webm,.mov,.m4v">
+        <video id="studioVideo" controls playsinline hidden></video>
+        <div id="studioVideoStatus" class="status" aria-live="polite">Selecione um vídeo suportado pelo navegador para visualizar.</div>
+      </div>
     </section>
     <section class="view content-view" id="view-agents" hidden><div class="page-heading"><p class="eyebrow">AUTOMAÇÃO INTELIGENTE</p><h1>Agentes especializados</h1><p>Escolha um agente e delegue uma tarefa.</p></div><div class="card-grid" id="agentsGrid"></div><div class="panel"><h3>Executar agente</h3><select id="agentSelect"></select><textarea id="agentTask" placeholder="Descreva a tarefa para o agente..."></textarea><button class="primary-btn" id="btnRunAgent">Executar agente</button><pre id="agentResult" class="result-box"></pre></div></section>
     <section class="view content-view" id="view-tasks" hidden><div class="page-heading"><p class="eyebrow">ORGANIZAÇÃO</p><h1>Planejamento de tarefas</h1><p>Transforme objetivos em etapas organizadas.</p></div><div class="panel"><textarea id="taskGoal" placeholder="Descreva seu objetivo..."></textarea><div class="row"><button class="primary-btn" id="btnPlan">Criar planejamento</button><button class="secondary-btn" id="btnRunTask">Criar e executar</button></div><pre id="planPreview" class="result-box"></pre></div><h3>Tarefas</h3><div id="taskList" class="list"></div></section>

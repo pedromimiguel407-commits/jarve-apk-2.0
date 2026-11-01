@@ -11,9 +11,9 @@ test('frontend index exists and has key controls', () => {
     assert.ok(html.includes('id="' + id + '"'), 'missing ' + id);
   }
   const navigation = html.match(/<nav class="tool-nav primary-nav"[\s\S]*?<\/nav>/)?.[0] || '';
-  assert.deepEqual([...navigation.matchAll(/data-view="([^"]+)"/g)].map(match => match[1]), ['chat', 'settings']);
+  assert.deepEqual([...navigation.matchAll(/data-view="([^"]+)"/g)].map(match => match[1]), ['chat', 'voice-studio', 'settings']);
   assert.match(navigation, /href="\/download\.html"/);
-  for (const id of ['aiDisplayName','accentColor','rgbMode','speechLanguage','speechVoice','speechRate','speechPitch','btnTestVoice','btnRunHtmlTests','btnRunDiag','repairInput','repairFile','btnAskFix','workflowGoal','btnWorkflowResearch','btnWorkflowPlan','btnWorkflowCreate','btnWorkflowExecute','btnWorkflowPreview','workflowPreview']) {
+  for (const id of ['aiDisplayName','accentColor','rgbMode','speechLanguage','speechVoice','speechRate','speechPitch','btnTestVoice','btnRunHtmlTests','btnRunDiag','repairInput','repairFile','btnAskFix','workflowGoal','btnWorkflowResearch','btnWorkflowPlan','btnWorkflowCreate','btnWorkflowExecute','btnWorkflowPreview','workflowPreview','studioNarration','studioVideoFile','studioVideo','btnSpeakNarration','btnPlayAndSpeak']) {
     assert.ok(html.includes(`id="${id}"`), 'missing preference/diagnostic control ' + id);
   }
 });
