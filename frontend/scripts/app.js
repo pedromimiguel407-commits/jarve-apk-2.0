@@ -78,8 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnClear').hidden = v !== 'chat';
     document.getElementById('btnExport').hidden = v !== 'chat';
     document.getElementById('btnTheme').hidden = v !== 'chat';
-    if (v === 'settings') document.getElementById('convTitle').textContent = 'Configurações';
-    else if (v === 'voice-studio') document.getElementById('convTitle').textContent = 'Voz e vídeo';
+    const viewTitles = { settings: 'Configurações', 'voice-studio': 'Voz e vídeo', 'html-tests': 'Testes HTML', reports: 'Relatórios', gerador: 'Gerador' };
+    if (viewTitles[v]) document.getElementById('convTitle').textContent = viewTitles[v];
     else if (state.currentConversationId !== null) {
       const current = state.conversations.find(conversation => conversation.id === state.currentConversationId);
       document.getElementById('convTitle').textContent = current?.title || 'Conversa';
@@ -95,9 +95,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (v === 'memory') loadMemory();
     if (v === 'tasks') loadTasks();
     if (v === 'settings') { loadSettings(); loadReports(); }
+    if (v === 'html-tests') loadDiagnostics();
     if (v === 'diagnostics') loadDiagnostics();
     if (v === 'reports') loadReports();
   }
+  window.jarvesSetView = setView;
   document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
     btn.addEventListener('click', () => { setView(btn.dataset.view); closeSidebar(); });
   });

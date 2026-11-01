@@ -145,7 +145,7 @@ init();
   }
 
 
-  // ---------- Motor de geracao Sol 6.1 (offline): planeja e devolve arquivos ----------
+  // ---------- Motor local offline: planeja e devolve arquivos ----------
   function seeded(text) {
     let seed = 0; for (const ch of text) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
     return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -183,6 +183,158 @@ init();
       { name: 'script.js', mime: 'text/javascript', content: "document.getElementById('cta').addEventListener('click',function(){document.getElementById('msg').textContent='Obrigado! Entraremos em contato em breve.';document.getElementById('contato').scrollIntoView({behavior:'smooth'});});\n" },
     ];
   }
+
+  function modelShape(prompt, requested) {
+    if (['cube', 'sphere', 'cylinder', 'cone'].includes(requested)) return requested;
+    const q = norm(prompt);
+    if (/cubo|caixa|bloco|cube/.test(q)) return 'cube';
+    if (/cilindro|lata|tubo|cylinder/.test(q)) return 'cylinder';
+    if (/cone|chapeu|montanha/.test(q)) return 'cone';
+    return 'sphere';
+  }
+
+  function modelColor(value, prompt) {
+    if (/^#[\da-f]{6}$/i.test(value || '')) return value;
+    const q = norm(prompt);
+    if (/vermelho|red/.test(q)) return '#ef476f';
+    if (/verde|green/.test(q)) return '#43aa8b';
+    if (/amarelo|yellow/.test(q)) return '#ffd166';
+    if (/roxo|purple|violeta/.test(q)) return '#9b5de5';
+    if (/laranja|orange/.test(q)) return '#f9844a';
+    return '#7c8cff';
+  }
+
+  function createMesh(shape, segments = 16) {
+    const vertices = [];
+    const faces = [];
+    if (shape === 'cube') {
+      vertices.push([-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]);
+      for (const [a,b,c,d] of [[0,3,2,1],[4,5,6,7],[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]]) faces.push([a,b,c],[a,c,d]);
+      return { vertices, faces };
+    }
+    const count = Math.max(8, Math.min(segments, 32));
+    if (shape === 'sphere') {
+      vertices.push([0,0,1]);
+      for (let lat = 1; lat < 8; lat++) {
+        const phi = Math.PI * lat / 8;
+        for (let lon = 0; lon < count; lon++) {
+          const theta = 2 * Math.PI * lon / count;
+          vertices.push([Math.sin(phi)*Math.cos(theta), Math.sin(phi)*Math.sin(theta), Math.cos(phi)]);
+        }
+      }
+      const bottom = vertices.length;
+      vertices.push([0,0,-1]);
+      for (let lon = 0; lon < count; lon++) faces.push([0, 1 + lon, 1 + (lon + 1) % count]);
+      for (let ring = 0; ring < 6; ring++) {
+        const start = 1 + ring * count;
+        const next = start + count;
+        for (let lon = 0; lon < count; lon++) {
+          const a = start + lon, b = start + (lon + 1) % count;
+          const c = next + (lon + 1) % count, d = next + lon;
+          faces.push([a,d,c],[a,c,b]);
+        }
+      }
+      const last = 1 + 6 * count;
+      for (let lon = 0; lon < count; lon++) faces.push([bottom, last + (lon + 1) % count, last + lon]);
+      return { vertices, faces };
+    }
+    const topRadius = shape === 'cone' ? 0 : 1;
+    for (let i = 0; i < count; i++) {
+      const angle = 2 * Math.PI * i / count;
+      vertices.push([Math.cos(angle), Math.sin(angle), -1]);
+      vertices.push([topRadius * Math.cos(angle), topRadius * Math.sin(angle), 1]);
+    }
+    const bottomCenter = vertices.length;
+    vertices.push([0,0,-1]);
+    const topCenter = vertices.length;
+    vertices.push([0,0,1]);
+    for (let i = 0; i < count; i++) {
+      const next = (i + 1) % count;
+      const a = i * 2, b = a + 1, c = next * 2 + 1, d = next * 2;
+      faces.push([a,d,c],[a,c,b],[bottomCenter,d,a]);
+      if (topRadius) faces.push([topCenter,b,c]);
+    }
+    return { vertices, faces };
+  }
+
+  function modelFiles(prompt, spec = {}) {
+    const shape = modelShape(prompt, spec.shape);
+    const color = modelColor(spec.color, prompt);
+    const mesh = createMesh(shape, Number.isInteger(spec.segments) ? spec.segments : 16);
+    const basename = norm(prompt).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32) || 'modelo';
+    const obj = ['mtllib ' + basename + '.mtl', 'o ' + basename, 'usemtl jarves_material',
+      ...mesh.vertices.map(v => `v ${v.map(n => n.toFixed(5)).join(' ')}`),
+      ...mesh.faces.map(f => 'f ' + f.map(i => i + 1).join(' ')), ''].join('\n');
+    const rgb = color.slice(1).match(/.{2}/g).map(v => parseInt(v, 16) / 255);
+    const mtl = ['newmtl jarves_material', `Kd ${rgb.map(n => n.toFixed(4)).join(' ')}`, 'Ka 0.1000 0.1000 0.1000', 'Ks 0.1500 0.1500 0.1500', 'd 1.0', 'illum 2', ''].join('\n');
+
+    const positions = new Float32Array(mesh.vertices.flat());
+    const indices = new Uint16Array(mesh.faces.flat());
+    const binary = new Uint8Array(positions.byteLength + indices.byteLength);
+    const dataView = new DataView(binary.buffer);
+    positions.forEach((value, i) => dataView.setFloat32(i * 4, value, true));
+    indices.forEach((value, i) => dataView.setUint16(positions.byteLength + i * 2, value, true));
+    const positionMin = [0,1,2].map(axis => Math.min(...mesh.vertices.map(v => v[axis])));
+    const positionMax = [0,1,2].map(axis => Math.max(...mesh.vertices.map(v => v[axis])));
+    const gltf = {
+      asset: { version: '2.0', generator: 'JARVES local model builder' },
+      scene: 0, scenes: [{ nodes: [0] }], nodes: [{ mesh: 0 }],
+      meshes: [{ primitives: [{ attributes: { POSITION: 0 }, indices: 1, material: 0 }] }],
+      materials: [{ name: 'jarves_material', pbrMetallicRoughness: { baseColorFactor: [...rgb, 1], metallicFactor: 0.05, roughnessFactor: 0.75 }, doubleSided: true }],
+      buffers: [{ byteLength: binary.byteLength }],
+      bufferViews: [
+        { buffer: 0, byteOffset: 0, byteLength: positions.byteLength, target: 34962 },
+        { buffer: 0, byteOffset: positions.byteLength, byteLength: indices.byteLength, target: 34963 },
+      ],
+      accessors: [
+        { bufferView: 0, componentType: 5126, count: mesh.vertices.length, type: 'VEC3', min: positionMin, max: positionMax },
+        { bufferView: 1, componentType: 5123, count: indices.length, type: 'SCALAR', min: [0], max: [mesh.vertices.length - 1] },
+      ],
+    };
+    const encoder = new TextEncoder();
+    const jsonBytes = encoder.encode(JSON.stringify(gltf));
+    const jsonLength = (jsonBytes.length + 3) & ~3;
+    const binLength = (binary.length + 3) & ~3;
+    const glb = new Uint8Array(12 + 8 + jsonLength + 8 + binLength);
+    const header = new DataView(glb.buffer);
+    header.setUint32(0, 0x46546c67, true); header.setUint32(4, 2, true); header.setUint32(8, glb.length, true);
+    header.setUint32(12, jsonLength, true); header.setUint32(16, 0x4e4f534a, true);
+    glb.fill(0x20, 20, 20 + jsonLength); glb.set(jsonBytes, 20);
+    const binHeader = 20 + jsonLength;
+    header.setUint32(binHeader, binLength, true); header.setUint32(binHeader + 4, 0x004e4942, true);
+    glb.set(binary, binHeader + 8);
+
+    return {
+      shape, files: [
+        { name: basename + '.obj', mime: 'text/plain', content: obj },
+        { name: basename + '.mtl', mime: 'text/plain', content: mtl },
+        { name: basename + '.glb', mime: 'model/gltf-binary', content: glb },
+        { name: basename + '-preview.html', mime: 'text/html', content: modelViewerHtml(mesh.vertices, mesh.faces, color, prompt) },
+      ],
+    };
+  }
+
+  function modelViewerHtml(vertices, faces, color, title) {
+    const safeTitle = String(title || 'Modelo 3D').replace(/[<>&"]/g, '').slice(0, 80) || 'Modelo 3D';
+    return '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + safeTitle + '</title>' +
+      '<style>body{margin:0;background:#0b1020;color:#e7ebff;font:16px system-ui;display:grid;place-items:center;min-height:100vh}main{width:min(900px,96vw)}canvas{width:100%;height:min(70vh,600px);display:block;background:radial-gradient(#202b4a,#0b1020);border-radius:16px;touch-action:none}p{color:#bac5e2}</style>' +
+      '<main><h1>' + safeTitle + '</h1><canvas id="mesh"></canvas><p>Arraste para girar o modelo. Construído localmente; nenhum serviço pago é usado.</p></main>' +
+      '<script>const V=' + JSON.stringify(vertices) + ',F=' + JSON.stringify(faces) + ',C=' + JSON.stringify(color) + ';const c=document.getElementById("mesh"),x=c.getContext("2d");let rx=-.35,ry=.65,drag=null;' +
+      'function draw(){const d=devicePixelRatio||1,r=c.getBoundingClientRect();if(!r.width||!r.height)return;c.width=Math.round(r.width*d);c.height=Math.round(r.height*d);x.setTransform(d,0,0,d,0,0);x.clearRect(0,0,r.width,r.height);const cr=Math.cos(rx),sr=Math.sin(rx),cy=Math.cos(ry),sy=Math.sin(ry),s=Math.min(r.width,r.height)*.34;' +
+      'const P=V.map(v=>{const a=v[0]*cy-v[2]*sy,b=v[0]*sy+v[2]*cy,z=v[1]*sr+b*cr,y=v[1]*cr-b*sr,k=s/(z+4);return [r.width/2+a*k,r.height/2-y*k,z]});' +
+      'const order=F.map(f=>({f,z:f.reduce((n,i)=>n+P[i][2],0)/f.length})).sort((a,b)=>a.z-b.z);for(const q of order){x.beginPath();q.f.forEach((i,j)=>j?x.lineTo(P[i][0],P[i][1]):x.moveTo(P[i][0],P[i][1]));x.closePath();x.fillStyle=C;x.globalAlpha=.78;x.fill();x.globalAlpha=1;x.strokeStyle="#eaf0ff66";x.stroke();}}' +
+      'c.addEventListener("pointerdown",e=>{drag=[e.clientX,e.clientY];c.setPointerCapture(e.pointerId)});c.addEventListener("pointermove",e=>{if(!drag)return;ry+=(e.clientX-drag[0])*.012;rx+=(e.clientY-drag[1])*.012;drag=[e.clientX,e.clientY];draw()});c.addEventListener("pointerup",()=>drag=null);if(window.ResizeObserver)new ResizeObserver(draw).observe(c);else addEventListener("resize",draw);draw();<\/script></html>';
+  }
+
+  function modelExperience(prompt, spec = {}) {
+    const model = modelFiles(prompt, spec);
+    return {
+      type: 'experiencia',
+      plan: ['Criar ilustração 2D vetorial em SVG', 'Gerar malha 3D local em OBJ/MTL e GLB', 'Incluir visualizador HTML interativo por arraste', 'Empacotar os arquivos para baixar sem serviços pagos'],
+      files: [{ name: 'ilustracao.svg', mime: 'image/svg+xml', content: svgArt(prompt) }, ...model.files],
+    };
+  }
+
   const TODO_HTML = HEAD('Tarefas') + `<style>#w{width:min(440px,94vw)}input{width:70%;padding:12px;border-radius:10px;border:1px solid #24314a;background:#111830;color:#fff}li{display:flex;justify-content:space-between;background:#151f34;margin:8px 0;padding:12px;border-radius:10px;list-style:none;cursor:pointer}li.f span{text-decoration:line-through;opacity:.5}ul{padding:0}</style>
 <div id="w"><h2>✅ Lista de tarefas</h2><input id="t" placeholder="Nova tarefa"> <button onclick="add()">Adicionar</button><ul id="l"></ul></div>
 <script>
@@ -200,6 +352,7 @@ let e='';const d=document.getElementById('d'),k=document.getElementById('k');
 <\/script></body></html>`;
 
   function detectType(q) {
+    if (/3d|modelo 3d|malha|glb|obj/.test(q)) return 'modelo-3d';
     if (/imagem|foto|desenho|arte|logo|paisagem|pintura|ilustracao|wallpaper|quadro|floresta|montanha|por do sol|ceu estrelado/.test(q)) return 'imagem';
     if (/calculadora/.test(q)) return 'app-calc';
     if (/tarefa|todo|lista de/.test(q)) return 'app-todo';
@@ -208,15 +361,20 @@ let e='';const d=document.getElementById('d'),k=document.getElementById('k');
     return 'site';
   }
   // Devolve { type, plan:[...], files:[{name,mime,content}] }
-  function generate(prompt, type) {
+  function generate(prompt, type, options = {}) {
     const q = norm(prompt);
     const t = (type && type !== 'auto') ? type : detectType(q);
     if (t === 'imagem') return { type: t, plan: ['Entender o tema: "' + String(prompt).slice(0, 50) + '"', 'Escolher paleta e cena (céu, sol/lua, relevo, mar, cidade, floresta)', 'Desenhar em SVG (vetorial, sem perda de qualidade)', 'Exportar .svg e .png'], files: [{ name: 'imagem.svg', mime: 'image/svg+xml', content: svgArt(prompt) }] };
+    if (t === 'modelo-3d') {
+      const model = modelFiles(prompt, options);
+      return { type: t, plan: ['Selecionar uma forma geométrica com base no pedido', 'Gerar uma malha local triangulada', 'Exportar OBJ/MTL e GLB', 'Criar visualizador HTML interativo'], files: model.files };
+    }
+    if (t === 'experiencia') return modelExperience(prompt, options);
     if (t === 'jogo') { const k = pickGame(q, false) || ORDER[Math.floor(seeded(q)() * ORDER.length)]; return { type: t, plan: ['Escolher o jogo: ' + GAMES[k].nome, 'Montar canvas, regras e pontuação', 'Adicionar controles de teclado, mouse e toque', 'Entregar em um único HTML'], files: [{ name: 'jogo-' + k + '.html', mime: 'text/html', content: GAMES[k].html }] }; }
     if (t === 'app-todo') return { type: t, plan: ['Definir dados (tarefas)', 'Criar interface', 'Salvar no armazenamento local do navegador'], files: [{ name: 'tarefas.html', mime: 'text/html', content: TODO_HTML }] };
     if (t === 'app-calc') return { type: t, plan: ['Criar teclado', 'Avaliar a expressão com segurança', 'Entregar em um único HTML'], files: [{ name: 'calculadora.html', mime: 'text/html', content: CALC_HTML }] };
     return { type: 'site', plan: ['Definir seções (início, sobre, serviços, contato)', 'Escrever HTML semântico', 'Estilo responsivo (PC e celular) em style.css', 'Interação em script.js'], files: siteFiles(prompt) };
   }
 
-  globalThis.JARVES_BASE = { reply, generate, svgArt, games: Object.keys(GAMES), MENU_TAG };
+  globalThis.JARVES_BASE = { reply, generate, svgArt, modelFiles, games: Object.keys(GAMES), MENU_TAG };
 })();
