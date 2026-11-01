@@ -1,4 +1,4 @@
-# JARVES AI 2.3.4 — GitHub + Android
+# JARVES AI 2.3.6 — GitHub + Android
 
 Repositorio-fonte preparado a partir do pacote Windows enviado.
 
@@ -22,10 +22,10 @@ HOST=0.0.0.0 npm start
 Abra `http://localhost:3000` no computador.
 
 ## Android
-O APK é um cliente da interface web. O backend e o provedor IA/Ollama continuam no PC/servidor.
+O APK é um cliente da interface web; ele não hospeda o backend Node/SQLite nem instala Ollama ou um modelo generativo no telefone. O backend e o provedor IA/Ollama continuam no PC/servidor.
 1. Inicie o JARVES no PC com `HOST=0.0.0.0 npm start` para habilitar o anúncio de descoberta na rede local.
 2. No Android, conecte-se à rede Wi-Fi em que o PC está. O APK procura automaticamente um servidor JARVES anunciado e valida `/api/health`.
-3. Se a descoberta não funcionar, confira o firewall/isolamento de clientes do roteador; use **Servidor** no app para informar manualmente `http://<IP-do-PC>:3000`.
+3. Na aba **Configurações** do APK, informe `http://<IP-do-PC>:3000` em **Servidor para este celular** e toque em **Validar e conectar**. O app confirma `/api/health`, salva o endereço e mostra o estado da conexão. Se a descoberta falhar, confira firewall e isolamento de clientes do roteador.
 
 A descoberta usa mDNS (`_jarves._tcp`) e só é anunciada quando o backend escuta em todas as interfaces ou num endereço local privado. O APK não liga o Wi-Fi nem ingressa numa rede protegida; ambos os aparelhos precisam estar na mesma rede local e a rede deve permitir tráfego entre dispositivos. A versão desktop instalada mantém o backend limitado a `127.0.0.1`; para conectar o APK, inicie o servidor Node em modo LAN conforme o passo 1.
 
@@ -38,9 +38,9 @@ A descoberta usa mDNS (`_jarves._tcp`) e só é anunciada quando o backend escut
 ## Gerar APK pelo GitHub
 1. Crie um repositório no GitHub e envie todos os arquivos desta pasta.
 2. Abra **Actions** e execute **Build JARVES Android APK** (workflow_dispatch). Pushes com mudanças Android, frontend, backend ou motores de IA também compilam o APK como artefato do workflow.
-3. Baixe `JARVES-AI-2.3.4-Android-APK` na seção Artifacts da execução.
-4. Para publicar o APK em Releases, crie e envie uma tag `v2.3.4`:
-   `git tag v2.3.4 && git push origin v2.3.4`
+3. Baixe `JARVES-AI-2.3.6-Android-APK` na seção Artifacts da execução.
+4. Para publicar o APK em Releases, crie e envie uma tag `v2.3.6`:
+   `git tag v2.3.6 && git push origin v2.3.6`
 
 A página de downloads está em `/download.html` quando o servidor JARVES está em execução. O workflow **Publish JARVES downloads site** publica a mesma página como site estático no GitHub Pages e a atualiza em pushes para `main`. Ela consulta o release mais recente e só mostra botões quando encontra os assets reais `app-debug.apk`, `JARVES-AI-Setup-<versão>-x64.exe` e `JARVES-AI-<versão>-x64.AppImage`. Artefatos de Actions não são anexados automaticamente a um Release. O APK atual é uma compilação de depuração; o EXE não é assinado.
 
@@ -50,13 +50,14 @@ A página de downloads está em `/download.html` quando o servidor JARVES está 
 - O instalador ainda não tem assinatura de código; o Windows pode mostrar avisos do SmartScreen.
 
 ## Gerar AppImage para Linux
-- Requer Node.js 22.13+; execute `npm ci` e `npm run build:linux` para criar `dist/JARVES-AI-2.3.4-x86_64.AppImage`.
+- Requer Node.js 22.13+; execute `npm ci` e `npm run build:linux` para criar `dist/JARVES-AI-2.3.6-x86_64.AppImage`.
 - O workflow **Build JARVES Linux AppImage** gera o mesmo pacote x86_64 e publica-o como artefato do Actions. Para aparecer no site, publique o `.AppImage` como asset de um GitHub Release.
 - Os pacotes Electron incluem o diretório `executor/`, usado pelo provedor de IA, e usam ícones de aplicativo específicos para Linux e Windows. O APK inclui ícones de launcher em todas as densidades Android.
 
 ## Interface, voz e correção assistida
-- A navegação principal oferece **Chat**, **Voz e vídeo**, **Testes HTML**, **Relatórios** e **Configurações**, com histórico dentro do chat e atalho para downloads.
-- Em Configurações é possível personalizar nome da IA, cor principal, efeito RGB, tema, voz/idioma e velocidade/tom da síntese de fala disponíveis no navegador. Essas preferências ficam neste dispositivo; síntese e reconhecimento dependem do navegador e das vozes instaladas, não alteram a voz textual do modelo.
+- O Chat reúne acesso ao Gerador, Voz e vídeo, Testes HTML, Relatórios, Agentes, Tarefas, Arquivos, Memória e Configurações no painel **Ferramentas**.
+- O botão **Voz** no Chat transcreve pedidos e aceita os comandos “enviar”, “limpar texto”, “novo chat” e “parar resposta”. No Android usa o reconhecedor do sistema após pedir permissão de microfone; no navegador depende do suporte e do serviço de voz instalado. O reconhecimento pode exigir internet e não é garantidamente offline; pedidos ditados são transcritos para revisão antes de enviar, exceto quando a pessoa diz “enviar”.
+- Em Configurações é possível personalizar nome da IA, cor principal, efeito RGB, tema, voz/idioma e velocidade/tom da síntese de fala disponíveis no dispositivo. Essas preferências ficam neste dispositivo; síntese e reconhecimento não alteram a voz textual do modelo.
 - Também é possível carregar uma imagem PNG/JPG/WebP de até 5 MB, que é recortada e reduzida para 256×256 antes de ser guardada localmente e exibida como avatar da IA. No APK, Configurações também permite alternar entre dois ícones de launcher incluídos no pacote; imagens enviadas mudam o avatar dentro do app, mas não recompilam o ícone instalado.
 - A aba Voz e vídeo lê texto com a voz instalada, pode reproduzir junto um vídeo local e exporta o roteiro como TXT. O vídeo não é enviado, mas a voz não é incorporada/exportada no MP4; não existe um motor local de geração/edição de vídeo nesta versão.
 - A aba **Testes HTML** executa verificações locais da interface e consulta diagnósticos do servidor; **Relatórios** mostra o último resumo e permite exportar TXT/JSON. É possível fornecer um arquivo de texto/código nas Configurações para preparar uma solicitação de análise no Chat. A IA sugere correções em texto; não executa código nem modifica arquivos automaticamente.

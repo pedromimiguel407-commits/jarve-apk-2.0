@@ -21,7 +21,7 @@ function bool(name, def) {
   return v === 'true' || v === '1' || v === 'yes';
 }
 
-export const APP_VERSION = '2.3.5';
+export const APP_VERSION = '2.3.6';
 
 export const env = {
   PORT: num('PORT', 3000),

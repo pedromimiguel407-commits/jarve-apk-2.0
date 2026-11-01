@@ -16,7 +16,7 @@
 <div class="app-shell">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <a class="brand" href="/" aria-label="JARVES AI início"><span class="brand-mark" id="brandMark">J</span><span><b id="brandName">JARVES AI</b><small>2.3.5 · MEGA UPDATE</small></span></a>
+      <a class="brand" href="/" aria-label="JARVES AI início"><span class="brand-mark" id="brandMark">J</span><span><b id="brandName">JARVES AI</b><small>2.3.6 · MEGA UPDATE</small></span></a>
       <button class="icon-btn mobile-close" id="btnCloseSidebar" aria-label="Fechar menu">×</button>
     </div>
     <nav class="tool-nav primary-nav" aria-label="Navegação principal">
@@ -29,7 +29,7 @@
       <div class="side-label">CONVERSAS</div>
       <nav class="sidebar-nav" id="convList" aria-label="Conversas"></nav>
     </div>
-    <div class="sidebar-bottom"><span class="online-dot"></span><span id="aiRuntimeStatus" role="status">Verificando provedor de IA...</span><small>v2.3.5</small></div>
+    <div class="sidebar-bottom"><span class="online-dot"></span><span id="aiRuntimeStatus" role="status">Verificando provedor de IA...</span><small>v2.3.6</small></div>
   </aside>
   <button class="overlay" id="overlay" aria-label="Fechar menu"></button>
   <main class="main">
@@ -46,7 +46,7 @@
     </header>
     <section class="view view-chat" id="view-chat">
       <div class="chat-area" id="chatArea" role="log" aria-live="polite">
-        <div class="welcome" id="welcomePanel"><div class="welcome-orb" id="welcomeOrb">J</div><p class="eyebrow"><span id="welcomeAiName">JARVES AI</span> · 2.3.5</p><h1>Como posso ajudar<br><span>você hoje?</span></h1><p class="welcome-copy">Pergunte, crie, programe ou organize suas ideias. Sua próxima descoberta começa aqui.</p><div class="welcome-chips"><button type="button" data-prompt="Explique como você pode me ajudar.">✦ Conhecer o JARVES</button><button type="button" data-prompt="Ajude-me a criar um projeto de software.">⌘ Criar um projeto</button><button type="button" data-prompt="Analise este código e sugira melhorias.">⌁ Analisar código</button></div></div>
+        <div class="welcome" id="welcomePanel"><div class="welcome-orb" id="welcomeOrb">J</div><p class="eyebrow"><span id="welcomeAiName">JARVES AI</span> · 2.3.6</p><h1>Como posso ajudar<br><span>você hoje?</span></h1><p class="welcome-copy">Pergunte, crie, programe ou organize suas ideias. Sua próxima descoberta começa aqui.</p><div class="welcome-chips"><button type="button" data-prompt="Explique como você pode me ajudar.">✦ Conhecer o JARVES</button><button type="button" data-prompt="Ajude-me a criar um projeto de software.">⌘ Criar um projeto</button><button type="button" data-prompt="Analise este código e sugira melhorias.">⌁ Analisar código</button></div></div>
       </div>
       <section class="chat-tools panel" id="chatTools" aria-label="Ferramentas do Chat" hidden>
         <div class="row html-test-toolbar"><div><h3>Ferramentas do Chat</h3><p class="muted-copy">Abra recursos sem sair do espaço principal do Chat.</p></div><button class="icon-btn" id="btnCloseChatTools" type="button" aria-label="Fechar ferramentas">×</button></div>
@@ -65,7 +65,8 @@
       <div class="suggestions" id="suggestions"></div>
       <div class="composer-wrap"><div class="composer">
         <textarea id="input" placeholder="Envie uma mensagem ao JARVES..." rows="1" aria-label="Mensagem"></textarea>
-        <div class="composer-tools"><span class="composer-hint">Enter para enviar · Shift + Enter para nova linha</span><div class="composer-actions"><button class="secondary-btn" id="btnVoice" type="button">◖ Voz</button><button class="danger-btn" id="btnStop" type="button" disabled>Parar</button><button class="send-btn" id="btnSend" type="button" aria-label="Enviar mensagem">↑</button></div></div>
+        <div class="composer-tools"><span class="composer-hint">Enter envia · Shift + Enter quebra linha · Voz: diga “enviar”, “limpar texto”, “novo chat” ou “parar resposta”</span><div class="composer-actions"><button class="secondary-btn" id="btnVoice" type="button" aria-label="Ditado e comandos de voz: enviar pedido, limpar texto, novo chat ou parar resposta" aria-pressed="false" title="O reconhecimento usa o serviço de voz do navegador ou do Android; internet pode ser necessária.">◖ Voz</button><button class="danger-btn" id="btnStop" type="button" disabled>Parar</button><button class="send-btn" id="btnSend" type="button" aria-label="Enviar mensagem">↑</button></div></div>
+        <div class="status-bar voice-command-status" id="voiceCommandStatus" role="status" aria-live="polite"></div>
       </div><div class="status-bar" id="statusBar">A IA pode cometer erros. Verifique informações importantes.</div></div>
     </section>
     <section class="view content-view" id="view-voice-studio" hidden>
@@ -121,6 +122,13 @@
       </div>
       <div class="launcher-icon-setting"><label for="launcherIcon">Ícone do APK na tela inicial do Android</label><select id="launcherIcon"><option value="default">JARVES AI · azul</option><option value="robot">JARVES AI · turquesa</option></select><p class="muted-copy">No APK, escolha um dos ícones incluídos. Fora do APK esta opção não fica disponível.</p><div id="launcherIconStatus" class="status" aria-live="polite"></div></div>
       <button class="primary-btn" id="btnSaveAppearance" type="button">Salvar aparência</button><div id="appearanceStatus" class="status" aria-live="polite"></div></div>
+      <div class="panel" id="androidServerPanel">
+        <h3>Servidor para este celular</h3>
+        <p class="muted-copy">O APK funciona como cliente e conecta ao servidor JARVES em outro computador na mesma rede. Hospedar o backend e executar a IA dentro do próprio Android ainda não é suportado; esta configuração não instala nem executa Ollama no telefone.</p>
+        <label for="androidServerUrl">Endereço do servidor JARVES</label>
+        <input id="androidServerUrl" type="url" inputmode="url" placeholder="http://192.168.1.10:3000" autocomplete="url">
+        <div class="row"><button class="primary-btn" id="btnConnectAndroidServer" type="button">Validar e conectar</button><span id="androidServerStatus" class="status" role="status" aria-live="polite"></span></div>
+      </div>
       <div class="panel"><h3>Voz do navegador</h3><p class="muted-copy">A voz e a entrada por microfone usam os recursos instalados no seu dispositivo/navegador; elas não alteram a voz do modelo de texto.</p><div class="form-grid">
         <label>Idioma da voz<select id="speechLanguage"><option value="pt-BR">Português (Brasil)</option><option value="pt-PT">Português (Portugal)</option><option value="en-US">English (US)</option><option value="es-ES">Español</option></select></label>
         <label>Voz instalada<select id="speechVoice"><option value="">Voz padrão do dispositivo</option></select></label>
