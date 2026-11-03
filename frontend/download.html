@@ -30,10 +30,10 @@
     <p>Baixe os instaladores publicados no GitHub. Os botões aparecem somente quando há arquivos reais disponíveis para a versão.</p>
 
     <section class="download-card" aria-labelledby="update-title">
-      <h2 id="update-title">Novidades da versão v2.3.7</h2>
-      <p>A v2.3.7 permite baixar PDFs, imagens, áudio, vídeo, ZIP e outros arquivos de links públicos diretamente em Arquivos e código. Os downloads preservam os bytes originais e bloqueiam endereços de rede privados.</p>
+      <h2 id="update-title">Novidades da versão v2.3.9</h2>
+      <p>A v2.3.9 alinha a identificação de versão do aplicativo, da API e do APK Android. Esta página direciona para Releases e para os builds beta gerados pelo GitHub Actions.</p>
       <p class="status">Os downloads de Releases aparecem somente quando há arquivos publicados. A versão beta mais recente também oferece um APK de teste com menu independente no Android: abre sem computador, guarda notas localmente e oferece reconhecimento de voz do aparelho. A IA generativa por modelo ainda exige backend/modelo configurado.</p>
-      <a class="secondary" href="https://github.com/pedromimiguel407-commits/jarve-apk-2.0/releases" target="_blank" rel="noopener noreferrer">Ver releases e estado dos builds no GitHub ↗</a>
+      <a class="secondary" href="https://github.com/pedromimiguel407-commits/jarves.atulisa/releases" target="_blank" rel="noopener noreferrer">Ver releases e estado dos builds no GitHub ↗</a>
     </section>
 
     <section class="download-card" aria-labelledby="android-title">
@@ -58,13 +58,13 @@
       <h2 id="linux-title">Linux · AppImage</h2>
       <p id="linuxReleaseDetails" class="status" role="status" aria-live="polite">Consultando releases publicados…</p>
       <a id="linuxDownload" class="button" hidden>Baixar AppImage</a>
-      <p class="status">Pacote x86_64. A compilação Linux beta mais recente terminou com sucesso; o artefato fica disponível temporariamente no GitHub Actions por 14 dias. Pode ser necessário permitir a execução do arquivo nas propriedades do sistema.</p>
-      <a class="button" href="https://github.com/pedromimiguel407-commits/jarves.atulisa/actions/runs/41554296619" target="_blank" rel="noopener noreferrer">Baixar AppImage beta no GitHub Actions</a>
+      <p class="status">Pacote x86_64. A página consulta o resultado do build Linux da branch v2.3.9. O artefato beta fica temporariamente disponível no GitHub Actions. Pode ser necessário permitir a execução do arquivo nas propriedades do sistema.</p>
+      <a id="linuxActionsLink" class="button" href="https://github.com/pedromimiguel407-commits/jarves.atulisa/actions/workflows/desktop.yml" target="_blank" rel="noopener noreferrer">Abrir build Linux no GitHub Actions</a>
     </section>
 
   </main>
   <script>
-    const repository = 'pedromimiguel407-commits/jarve-apk-2.0';
+    const repository = 'pedromimiguel407-commits/jarves.atulisa';
     const status = document.getElementById('releaseDetails');
     const download = document.getElementById('apkDownload');
     const exeStatus = document.getElementById('exeReleaseDetails');
@@ -129,7 +129,7 @@
         } else if (run.conclusion === 'success') {
           const date = run.updated_at ? new Date(run.updated_at).toLocaleString('pt-BR') : 'data indisponível';
           androidStatus.textContent = `APK beta compilado com sucesso · ${date}. Abra a execução e baixe JARVES-Android-APK na seção Artifacts.`;
-          androidActionsLink.textContent = 'Abrir APK beta para baixar';
+          androidActionsLink.textContent = 'Abrir artefato APK para baixar';
         } else {
           androidStatus.dataset.state = 'error';
           androidStatus.textContent = 'A última compilação Android falhou. Abra o GitHub Actions para ver os logs.';
@@ -180,8 +180,45 @@
         exeActionsLink.hidden = false;
       }
     }
+
+    async function loadLinuxBuild() {
+      const workflowUrl = `https://api.github.com/repos/${windowsRepository}/actions/workflows/desktop.yml/runs?branch=${encodeURIComponent(windowsBranch)}&per_page=5`;
+      const linuxActionsLink = document.getElementById('linuxActionsLink');
+      try {
+        const response = await fetch(workflowUrl, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
+        if (!response.ok) throw new Error(`GitHub Actions respondeu HTTP ${response.status}.`);
+        const data = await response.json();
+        const run = (data.workflow_runs || [])[0];
+        if (!run || !run.html_url) throw new Error('Nenhuma compilação Linux encontrada nesta branch.');
+        const runUrl = new URL(run.html_url);
+        if (runUrl.protocol !== 'https:' || runUrl.hostname !== 'github.com') throw new Error('Link de compilação Linux inválido.');
+        linuxActionsLink.href = runUrl.href;
+        const jobsResponse = await fetch(`https://api.github.com/repos/${windowsRepository}/actions/runs/${run.id}/jobs`, {
+          headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store'
+        });
+        if (!jobsResponse.ok) throw new Error(`Não foi possível consultar o job Linux (HTTP ${jobsResponse.status}).`);
+        const jobs = await jobsResponse.json();
+        const linuxJob = (jobs.jobs || []).find(job => /ubuntu-24\.04, linux/i.test(job.name));
+        if (run.status !== 'completed') {
+          linuxStatus.textContent = 'Compilação Linux em andamento. Abra o GitHub Actions para acompanhar.';
+        } else if (linuxJob && linuxJob.conclusion === 'success') {
+          const date = run.updated_at ? new Date(run.updated_at).toLocaleString('pt-BR') : 'data indisponível';
+          linuxStatus.textContent = `AppImage beta compilado com sucesso · ${date} · artefato temporário disponível por 14 dias.`;
+          linuxActionsLink.textContent = 'Abrir AppImage beta para baixar';
+        } else {
+          linuxStatus.dataset.state = 'error';
+          linuxStatus.textContent = 'A última compilação Linux não foi aprovada. Abra o GitHub Actions para ver os logs.';
+        }
+      } catch (error) {
+        linuxStatus.dataset.state = 'error';
+        linuxStatus.textContent = `${error.message} Abra os builds desktop no GitHub.`;
+        linuxActionsLink.href = `https://github.com/${windowsRepository}/actions/workflows/desktop.yml`;
+      }
+    }
+
     loadAndroidBuild();
     loadWindowsBuild();
+    loadLinuxBuild();
   </script>
 </body>
 </html>
