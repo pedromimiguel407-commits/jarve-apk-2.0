@@ -48,7 +48,9 @@
       <h2 id="desktop-title">Windows EXE</h2>
       <p id="exeReleaseDetails" class="status" role="status" aria-live="polite">Consultando releases publicados…</p>
       <a id="exeDownload" class="button" hidden>Baixar instalador Windows</a>
-      <p class="status">O instalador não tem assinatura de código; o Windows pode mostrar um aviso do SmartScreen.</p>
+      <a id="exeActionsLink" class="button" hidden target="_blank" rel="noopener noreferrer">Abrir build Windows e baixar EXE</a>
+      <p class="status">Este é um instalador beta x64 gerado pelo GitHub Actions. Abra a execução e baixe o artefato JARVES-Windows-EXE na seção Artifacts (é necessário entrar no GitHub). O artefato fica disponível por 30 dias. O EXE não tem assinatura de código; o Windows pode mostrar um aviso do SmartScreen.</p>
+      <p><a class="secondary" href="https://github.com/pedromimiguel407-commits/jarves.atulisa" target="_blank" rel="noopener noreferrer">Ver código-fonte e testes Windows ↗</a></p>
     </section>
 
     <section class="download-card" aria-labelledby="linux-title">
@@ -67,6 +69,9 @@
     const exeDownload = document.getElementById('exeDownload');
     const linuxStatus = document.getElementById('linuxReleaseDetails');
     const linuxDownload = document.getElementById('linuxDownload');
+    const exeActionsLink = document.getElementById('exeActionsLink');
+    const windowsRepository = 'pedromimiguel407-commits/jarves.atulisa';
+    const windowsBranch = 'ai/evolution-max-2026-11-02';
     const releasesLink = document.getElementById('allReleases');
     releasesLink.href = `https://github.com/${repository}/releases`;
     function showDownload(asset, link) {
@@ -95,20 +100,55 @@
       status.textContent = showDownload(apk, download)
         ? `${versionLabel} · APK disponível.`
         : `${versionLabel} · este release ainda não tem APK.`;
-      exeStatus.textContent = showDownload(exe, exeDownload)
-        ? `${versionLabel} · instalador disponível.`
-        : `${versionLabel} · este release ainda não tem instalador Windows.`;
       linuxStatus.textContent = showDownload(appImage, linuxDownload)
         ? `${versionLabel} · AppImage disponível.`
         : `${versionLabel} · este release ainda não tem AppImage.`;
     }).catch(error => {
       status.dataset.state = 'error';
       status.textContent = `${error.message} Execute o workflow de APK e publique uma tag v* para disponibilizar o download.`;
-      exeStatus.dataset.state = 'error';
-      exeStatus.textContent = 'Nenhum instalador publicado em um Release.';
       linuxStatus.dataset.state = 'error';
       linuxStatus.textContent = 'Nenhum AppImage publicado em um Release.';
     });
+
+    async function loadWindowsBuild() {
+      const workflowUrl = `https://api.github.com/repos/${windowsRepository}/actions/workflows/desktop.yml/runs?branch=${encodeURIComponent(windowsBranch)}&per_page=5`;
+      try {
+        const response = await fetch(workflowUrl, {
+          headers: { Accept: 'application/vnd.github+json' },
+          cache: 'no-store',
+        });
+        if (!response.ok) throw new Error(`GitHub Actions respondeu HTTP ${response.status}.`);
+        const data = await response.json();
+        const run = (data.workflow_runs || [])[0];
+        if (!run || !run.html_url) throw new Error('Nenhuma compilação Windows encontrada nesta branch.');
+        const url = new URL(run.html_url);
+        if (url.protocol !== 'https:' || url.hostname !== 'github.com') throw new Error('Link de compilação inválido.');
+        exeActionsLink.href = url.href;
+        exeActionsLink.hidden = false;
+        const jobsResponse = await fetch(`https://api.github.com/repos/${windowsRepository}/actions/runs/${run.id}/jobs`, {
+          headers: { Accept: 'application/vnd.github+json' },
+          cache: 'no-store',
+        });
+        if (!jobsResponse.ok) throw new Error(`Não foi possível consultar o job Windows (HTTP ${jobsResponse.status}).`);
+        const jobs = await jobsResponse.json();
+        const windowsJob = (jobs.jobs || []).find(job => /windows-latest, windows/i.test(job.name));
+        if (run.status !== 'completed') {
+          exeStatus.textContent = 'Nova compilação Windows em andamento. Abra o GitHub Actions para acompanhar.';
+        } else if (windowsJob && windowsJob.conclusion === 'success') {
+          const date = run.updated_at ? new Date(run.updated_at).toLocaleString('pt-BR') : 'data indisponível';
+          exeStatus.textContent = `EXE beta compilado com sucesso · ${date} · artefato temporário disponível por 30 dias.`;
+        } else {
+          exeStatus.dataset.state = 'error';
+          exeStatus.textContent = 'A última compilação Windows não foi aprovada. Abra o GitHub Actions para ver os logs.';
+        }
+      } catch (error) {
+        exeStatus.dataset.state = 'error';
+        exeStatus.textContent = `${error.message} Você também pode abrir a página de compilações Windows no GitHub.`;
+        exeActionsLink.href = `https://github.com/${windowsRepository}/actions/workflows/desktop.yml`;
+        exeActionsLink.hidden = false;
+      }
+    }
+    loadWindowsBuild();
   </script>
 </body>
 </html>
