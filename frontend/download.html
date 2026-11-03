@@ -32,7 +32,7 @@
     <section class="download-card" aria-labelledby="update-title">
       <h2 id="update-title">Novidades da versão v2.3.7</h2>
       <p>A v2.3.7 permite baixar PDFs, imagens, áudio, vídeo, ZIP e outros arquivos de links públicos diretamente em Arquivos e código. Os downloads preservam os bytes originais e bloqueiam endereços de rede privados.</p>
-      <p class="status">Os botões abaixo mostram somente arquivos reais da versão mais recente publicada. O APK permanece cliente WebView e depende do backend JARVES ligado em um PC/servidor.</p>
+      <p class="status">Os downloads de Releases aparecem somente quando há arquivos publicados. A versão beta mais recente também oferece um APK de teste com menu independente no Android: abre sem computador, guarda notas localmente e oferece reconhecimento de voz do aparelho. A IA generativa por modelo ainda exige backend/modelo configurado.</p>
       <a class="secondary" href="https://github.com/pedromimiguel407-commits/jarve-apk-2.0/releases" target="_blank" rel="noopener noreferrer">Ver releases e estado dos builds no GitHub ↗</a>
     </section>
 
@@ -40,7 +40,8 @@
       <h2 id="android-title">Android · APK de teste</h2>
       <p id="releaseDetails" class="status" role="status" aria-live="polite">Consultando releases publicados…</p>
       <a id="apkDownload" class="button" hidden>Baixar APK</a>
-      <p class="status">Este APK de depuração pode exibir avisos de instalação. É um cliente WebView: precisa de um backend JARVES ligado em um PC/servidor acessível pela rede. O APK não hospeda o backend nem executa o Ollama no Android.</p>
+      <p class="status">APK beta de depuração gerado pelo GitHub Actions. O menu independente e as notas locais não precisam de computador. A conversa generativa ainda não está embarcada offline; voz depende do serviço de fala do Android. O artefato temporário exige login no GitHub e expira em 14 dias.</p>
+      <a id="apkActionsLink" class="button" hidden target="_blank" rel="noopener noreferrer">Baixar APK beta no GitHub Actions</a>
       <p><a id="allReleases" class="secondary" href="https://github.com/pedromimiguel407-commits/jarve-apk-2.0/releases" target="_blank" rel="noopener noreferrer">Ver releases no GitHub ↗</a></p>
     </section>
 
@@ -71,6 +72,9 @@
     const linuxDownload = document.getElementById('linuxDownload');
     const exeActionsLink = document.getElementById('exeActionsLink');
     const windowsRepository = 'pedromimiguel407-commits/jarves.atulisa';
+    const androidStatus = document.getElementById('releaseDetails');
+    const androidActionsLink = document.getElementById('apkActionsLink');
+    const androidWorkflow = 'https://api.github.com/repos/pedromimiguel407-commits/jarves.atulisa/actions/workflows/android.yml/runs?branch=ai%2Fevolution-max-2026-11-02&per_page=1';
     const windowsBranch = 'ai/evolution-max-2026-11-02';
     function showDownload(asset, link) {
       if (!asset || typeof asset.browser_download_url !== 'string') return false;
@@ -107,6 +111,35 @@
       linuxStatus.dataset.state = 'error';
       linuxStatus.textContent = 'Nenhum AppImage publicado em um Release.';
     });
+
+    async function loadAndroidBuild() {
+      try {
+        const response = await fetch(androidWorkflow, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store' });
+        if (!response.ok) throw new Error(`GitHub Actions respondeu HTTP ${response.status}.`);
+        const data = await response.json();
+        const run = (data.workflow_runs || [])[0];
+        if (!run || !run.html_url) throw new Error('Nenhuma compilação Android encontrada.');
+        const url = new URL(run.html_url);
+        if (url.protocol !== 'https:' || url.hostname !== 'github.com') throw new Error('Link Android inválido.');
+        androidActionsLink.href = url.href;
+        androidActionsLink.hidden = false;
+        if (run.status !== 'completed') {
+          androidStatus.textContent = 'Compilação do APK em andamento. Abra o GitHub Actions para acompanhar.';
+        } else if (run.conclusion === 'success') {
+          const date = run.updated_at ? new Date(run.updated_at).toLocaleString('pt-BR') : 'data indisponível';
+          androidStatus.textContent = `APK beta compilado com sucesso · ${date}. Abra a execução e baixe JARVES-Android-APK na seção Artifacts.`;
+          androidActionsLink.textContent = 'Abrir APK beta para baixar';
+        } else {
+          androidStatus.dataset.state = 'error';
+          androidStatus.textContent = 'A última compilação Android falhou. Abra o GitHub Actions para ver os logs.';
+        }
+      } catch (error) {
+        androidStatus.dataset.state = 'error';
+        androidStatus.textContent = `${error.message} Abra a página do workflow Android no GitHub.`;
+        androidActionsLink.href = 'https://github.com/pedromimiguel407-commits/jarves.atulisa/actions/workflows/android.yml';
+        androidActionsLink.hidden = false;
+      }
+    }
 
     async function loadWindowsBuild() {
       const workflowUrl = `https://api.github.com/repos/${windowsRepository}/actions/workflows/desktop.yml/runs?branch=${encodeURIComponent(windowsBranch)}&per_page=5`;
@@ -146,6 +179,7 @@
         exeActionsLink.hidden = false;
       }
     }
+    loadAndroidBuild();
     loadWindowsBuild();
   </script>
 </body>
